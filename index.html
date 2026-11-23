@@ -340,8 +340,9 @@ function baseMax(L){ if(L.read) return 0; let m=0;(L.tasks||[]).forEach(t=>{
   else if(t.type==="self") m+=t.items.length*RETRY; else if(t.type==="gaps") m+=BANK.length*BASE;}); return m; }
 const BASETOTAL=LEVELS.reduce((a,L)=>a+baseMax(L),0);
 
-let S={done:{},note:"",sound:false};
+let S={done:{},note:"",sound:false,runs:{},view:null};
 try{const r=localStorage.getItem(KEY); if(r) S=Object.assign(S,JSON.parse(r));}catch(e){}
+S.runs=S.runs||{};
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}};
 const total=()=>Object.values(S.done).reduce((a,d)=>a+(d.points||0),0);
 const pct=()=>Math.min(100,Math.round(total()/BASETOTAL*100));
@@ -371,6 +372,7 @@ function floatTxt(t,minus){const f=el("div","float"+(minus?" minus":""),esc(t));
 
 /* ---------- Weltkarte ---------- */
 function home(){
+  S.view=null; save();
   window.scrollTo(0,0); app.innerHTML=""; bump();
   const w=el("div","stack");
   const nr=nextRank();
@@ -395,7 +397,7 @@ function home(){
   const foot=el("div","stack"); foot.style.gap="10px"; foot.style.alignItems="center";
   foot.appendChild(el("p","foot","Kein Login, keine Namen: Dein Spielstand bleibt nur auf diesem Gerät."));
   const rs=el("div","btns"); const rb=el("button","btn ghost","Neues Spiel");rb.type="button";
-  rb.onclick=()=>{rs.innerHTML="";rs.appendChild(el("span","foot","Spielstand wirklich löschen?"));const y=el("button","btn red","Ja");y.type="button";y.onclick=()=>{S={done:{},note:"",sound:S.sound};save();home();};const n=el("button","btn ghost","Nein");n.type="button";n.onclick=home;rs.append(y,n);};
+  rb.onclick=()=>{rs.innerHTML="";rs.appendChild(el("span","foot","Spielstand wirklich löschen?"));const y=el("button","btn red","Ja");y.type="button";y.onclick=()=>{S={done:{},note:"",sound:S.sound,runs:{},view:null};save();home();};const n=el("button","btn ghost","Nein");n.type="button";n.onclick=home;rs.append(y,n);};
   rs.appendChild(rb); foot.appendChild(rs); w.appendChild(foot);
   app.appendChild(w);
 }
@@ -415,10 +417,14 @@ function buildQueue(L){
   });
   return q;
 }
-function play(i){
+function play(i,fresh){
   const L=LEVELS[i]; window.scrollTo(0,0); app.innerHTML="";
   if(L.read) return readGate(i);
-  const run={hearts:5,combo:0,points:0,q:buildQueue(L),pos:0};
+  if(fresh) delete S.runs[L.id];
+  const saved=S.runs[L.id];
+  const run=saved&&saved.q&&saved.pos<saved.q.length?saved:{hearts:5,combo:0,points:0,q:buildQueue(L),pos:0};
+  S.view={w:"level",i}; save();
+  const persist=(r)=>{S.runs[L.id]=JSON.parse(JSON.stringify(r));S.view={w:"level",i};save();};
   const w=el("div","stack");
   const top=el("div","topline");
   const back=el("button","btn ghost","‹ Karte");back.type="button";back.onclick=home;
@@ -436,6 +442,7 @@ function play(i){
   function next(){run.pos++;hud();if(run.pos>=run.q.length) return win();show(run.q[run.pos]);window.scrollTo({top:0,behavior:"smooth"});}
   function nextBtn(box){const b=el("button","btn","Weiter ▶");b.type="button";b.onclick=next;box.appendChild(b);setTimeout(()=>b.focus({preventScroll:true}),50);}
   function show(c){
+    persist(run);
     stage.innerHTML=""; hud();
     const box=el("div","box stack");
     if(c.kind==="choice"){
@@ -449,7 +456,7 @@ function play(i){
           if(ok){b.classList.add("right");let n;if(c.retry){n=RETRY;}else{run.combo++;n=BASE*mult();}gain(n);fb.innerHTML=(c.retry?"Jetzt stimmt’s!":["Richtig!","Treffer!","Stark!","Genau!"][Math.floor(Math.random()*4)])+'<span class="why">'+esc(c.explain||"")+'</span>';}
           else{b.classList.add("wrong");bs[c.correct].classList.add("right");if(!c.retry){lose();run.q.push(Object.assign({},c,{retry:true,opts:c.opts}));fb.innerHTML='Leider falsch. Richtig ist: „'+esc(c.opts[c.correct])+'“<span class="why">'+esc(c.explain||"")+' Die Frage kommt am Ende noch einmal.</span>';}
             else{fb.innerHTML='Wieder falsch. Richtig ist: „'+esc(c.opts[c.correct])+'“<span class="why">'+esc(c.explain||"")+' Verbessere das auf deinem Arbeitsblatt.</span>';beep("bad");}}
-          hud();box.appendChild(fb);nextBtn(box);};});
+          hud();persist(Object.assign({},run,{pos:run.pos+1}));box.appendChild(fb);nextBtn(box);};});
       box.appendChild(o);
     } else if(c.kind==="note"){
       box.appendChild(el("label","prompt",esc(c.t.label))).setAttribute("for","note");
@@ -505,6 +512,7 @@ function play(i){
     stage.appendChild(box);
   }
   function win(){
+    delete S.runs[L.id]; S.view=null;
     stage.innerHTML="";const stars=run.hearts>=4?3:run.hearts>=2?2:1;const prev=S.done[L.id];
     if(!prev||run.points>prev.points)S.done[L.id]={points:run.points,stars:Math.max(stars,prev?prev.stars:0)};
     else if(stars>prev.stars)S.done[L.id].stars=stars;
@@ -514,7 +522,7 @@ function play(i){
     const bs=el("div","btns");bs.style.justifyContent="center";
     if(i+1<LEVELS.length){const n=el("button","btn","Nächste Welt ▶");n.type="button";n.onclick=()=>play(i+1);bs.appendChild(n);}
     else{const f=el("button","btn red","Highscore ▶");f.type="button";f.onclick=finale;bs.appendChild(f);}
-    const a=el("button","btn ghost","Nochmal");a.type="button";a.onclick=()=>play(i);const k=el("button","btn ghost","Karte");k.type="button";k.onclick=home;bs.append(a,k);
+    const a=el("button","btn ghost","Nochmal");a.type="button";a.onclick=()=>play(i,true);const k=el("button","btn ghost","Karte");k.type="button";k.onclick=home;bs.append(a,k);
     box.appendChild(bs);stage.appendChild(box);hud();bar.firstChild.style.width="100%";
   }
   show(run.q[0]);
@@ -535,6 +543,7 @@ function readGate(i){
   box.append(a,b,go);w.appendChild(box);app.appendChild(w);
 }
 function finale(){
+  S.view={w:"finale"}; save();
   window.scrollTo(0,0);app.innerHTML="";bump();
   const rows=LEVELS.filter(L=>!L.read).map(L=>{const d=S.done[L.id]||{points:0,stars:0};return '<tr><td>'+esc(L.title)+'</td><td>'+smallStars(d.stars)+'</td><td class="n">'+d.points+'</td></tr>';}).join("");
   const sum=LEVELS.reduce((a,L)=>a+((S.done[L.id]||{}).stars||0)*(L.read?0:1),0);
@@ -545,7 +554,10 @@ function finale(){
   const b=el("button","btn ghost","‹ Zur Karte");b.type="button";b.onclick=home;w.appendChild(b);
   app.appendChild(w);beep("win");
 }
-home();
+(function start(){const v=S.view;
+  if(v&&v.w==="level"&&LEVELS[v.i]&&(v.i===0||S.done[LEVELS[v.i-1].id])) play(v.i);
+  else if(v&&v.w==="finale"&&LEVELS.every(L=>S.done[L.id])) finale();
+  else home();})();
 })();
 </script>
 
