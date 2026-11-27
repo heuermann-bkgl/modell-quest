@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset="utf-8">
+<title>Modell-Quest Gesundheitsmodelle</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: Spielkonsole im Dunkeln – oben die Anzeige (Herzen, Kombo, Münzen), darunter Weltkarte bzw. eine Frage-Karte nach der anderen */
+:root{
+  --night:#0f1330; --panel:#1b2150; --panel2:#262d6b; --edge:#3a4390; --txt:#eef0ff; --dim:#a9afe0;
+  --cyan:#41e3ff; --heart:#ff4f6d; --coin:#ffd23f; --lime:#7dff8a; --violet:#b48cff;
+  --f-pixel:"Press Start 2P","Courier New",monospace;
+  --f-body:"Atkinson Hyperlegible","Segoe UI",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:var(--night);color:var(--txt);font-family:var(--f-body);font-size:17px;line-height:1.5;
+  background-image:radial-gradient(circle at 20% 10%,rgba(65,227,255,.10),transparent 40%),radial-gradient(circle at 85% 80%,rgba(180,140,255,.12),transparent 45%),
+  linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+  background-size:auto,auto,24px 24px,24px 24px;background-attachment:fixed}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
+.hud{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--panel);border-bottom:4px solid var(--edge)}
+.hud .in{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{font-family:var(--f-pixel);font-size:.72rem;color:var(--cyan);flex:1;min-width:0;letter-spacing:.04em;text-shadow:0 0 8px rgba(65,227,255,.6)}
+.coins{font-family:var(--f-pixel);font-size:.72rem;color:var(--coin);display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
+.coin{width:14px;height:14px;border-radius:50%;background:var(--coin);box-shadow:inset -3px -3px 0 #c99a10}
+.iconbtn{font:inherit;background:var(--panel2);color:var(--txt);border:2px solid var(--edge);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:.85rem;min-height:36px}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.stack{display:flex;flex-direction:column;gap:16px}
+.px{font-family:var(--f-pixel);line-height:1.5}
+h1{font-family:var(--f-pixel);font-size:clamp(1.05rem,4.6vw,1.6rem);line-height:1.5;margin:0;color:var(--txt);text-shadow:3px 3px 0 var(--heart);text-wrap:balance}
+h2{font-family:var(--f-pixel);font-size:clamp(.85rem,3.6vw,1.05rem);line-height:1.6;margin:0;text-wrap:balance}
+p{margin:0}
+.lead{color:var(--dim);max-width:62ch}
+.box{background:var(--panel);border:4px solid var(--edge);border-radius:4px;padding:16px;box-shadow:6px 6px 0 rgba(0,0,0,.35)}
+.tip{background:rgba(255,210,63,.1);border:2px dashed var(--coin);border-radius:4px;padding:12px 14px;font-size:.95rem}
+.tip b{color:var(--coin)}
+/* Weltkarte */
+.map{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.world{position:relative;font:inherit;color:var(--txt);text-align:left;background:var(--panel);border:4px solid var(--edge);border-radius:4px;padding:14px;cursor:pointer;display:flex;flex-direction:column;gap:6px;min-height:132px;box-shadow:6px 6px 0 rgba(0,0,0,.35);transition:transform .12s}
+.world:not(:disabled):hover{transform:translate(-2px,-2px);border-color:var(--cyan)}
+.world:disabled{cursor:not-allowed;filter:grayscale(.8);opacity:.5}
+.world .nr{font-family:var(--f-pixel);font-size:.62rem;color:var(--cyan)}
+.world .nm{font-weight:700;font-size:1.05rem;line-height:1.25}
+.world .sb{font-size:.82rem;color:var(--dim)}
+.world .st{margin-top:auto;display:flex;gap:4px;align-items:center;font-size:.8rem;color:var(--dim)}
+.world.done{border-color:var(--lime)}
+.world.next{border-color:var(--cyan);animation:glow 1.6s ease-in-out infinite}
+@keyframes glow{50%{box-shadow:0 0 18px rgba(65,227,255,.55),6px 6px 0 rgba(0,0,0,.35)}}
+.world.boss .nr{color:var(--heart)}
+.heart{width:22px;height:20px;display:inline-block;flex:none}
+.hearts{display:flex;gap:4px}
+.xp{height:14px;background:var(--night);border:3px solid var(--edge);border-radius:2px;overflow:hidden}
+.xp span{display:block;height:100%;background:repeating-linear-gradient(90deg,var(--lime) 0 10px,#5ad86a 10px 20px);transition:width .4s}
+.rankline{display:flex;justify-content:space-between;gap:8px;font-size:.85rem;color:var(--dim);flex-wrap:wrap}
+.rankline b{color:var(--coin)}
+/* Spielfeld */
+.topline{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.combo{font-family:var(--f-pixel);font-size:.62rem;color:var(--violet);padding:6px 8px;border:2px solid var(--violet);border-radius:4px}
+.combo.hot{color:var(--night);background:var(--coin);border-color:var(--coin);animation:shake .35s}
+@keyframes shake{25%{transform:rotate(-4deg)}75%{transform:rotate(4deg)}}
+.label{font-family:var(--f-pixel);font-size:.6rem;color:var(--cyan);letter-spacing:.05em}
+.prompt{font-size:1.25rem;font-weight:700;line-height:1.35}
+.opts{display:grid;gap:10px}
+.opts.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.opt{font:inherit;font-weight:700;color:var(--txt);background:var(--panel2);border:3px solid var(--edge);border-radius:4px;padding:12px 14px;cursor:pointer;text-align:left;min-height:54px;box-shadow:4px 4px 0 rgba(0,0,0,.4);transition:transform .08s}
+.opt:hover:not(:disabled){border-color:var(--cyan)}
+.opt:active:not(:disabled){transform:translate(3px,3px);box-shadow:1px 1px 0 rgba(0,0,0,.4)}
+.opt:disabled{cursor:default}
+.opt.right{background:#1f5a3a;border-color:var(--lime)}
+.opt.wrong{background:#5a1f2e;border-color:var(--heart)}
+.opt.picked{border-color:var(--cyan);background:#20407a}
+.feedback{border-radius:4px;padding:12px 14px;font-weight:700}
+.feedback.good{background:rgba(125,255,138,.14);border:2px solid var(--lime);color:var(--lime)}
+.feedback.bad{background:rgba(255,79,109,.14);border:2px solid var(--heart);color:#ffb3c0}
+.feedback .why{display:block;font-weight:400;color:var(--txt);margin-top:4px}
+.btn{font-family:var(--f-pixel);font-size:.72rem;line-height:1.4;border:0;border-radius:4px;padding:14px 18px;cursor:pointer;min-height:50px;background:var(--cyan);color:var(--night);box-shadow:4px 4px 0 #1a7f93}
+.btn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 #1a7f93}
+.btn.red{background:var(--heart);box-shadow:4px 4px 0 #a32740;color:#fff}
+.btn.ghost{background:transparent;color:var(--txt);border:3px solid var(--edge);box-shadow:none}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btns{display:flex;flex-wrap:wrap;gap:12px}
+.float{position:fixed;left:50%;top:38%;transform:translateX(-50%);font-family:var(--f-pixel);font-size:1.4rem;color:var(--coin);text-shadow:3px 3px 0 #000;pointer-events:none;z-index:20;animation:up 1s ease-out forwards}
+.float.minus{color:var(--heart)}
+@keyframes up{to{transform:translate(-50%,-80px);opacity:0}}
+.bar{height:10px;background:var(--night);border:2px solid var(--edge);border-radius:2px;overflow:hidden}
+.bar span{display:block;height:100%;background:var(--cyan);transition:width .3s}
+textarea,select{font:inherit;color:var(--txt);background:var(--night);border:3px solid var(--edge);border-radius:4px;padding:8px 10px;width:100%}
+textarea{min-height:100px}
+.check{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.check input{width:24px;height:24px;margin-top:2px;accent-color:var(--lime);flex:none}
+.slots{display:flex;flex-direction:column;gap:8px;counter-reset:s}
+.slot{border:3px dashed var(--edge);border-radius:4px;padding:10px 12px;min-height:50px;display:flex;align-items:center;gap:12px}
+.slot::before{counter-increment:s;content:counter(s);font-family:var(--f-pixel);font-size:.75rem;color:var(--coin)}
+.slot.filled{border-style:solid;border-color:var(--cyan)}
+.slot.ok{border-color:var(--lime)}.slot.no{border-color:var(--heart)}
+.merke{line-height:2.1}
+.merke ul{margin:10px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:10px}
+.gap{display:inline-block;width:auto;min-width:9.5em;max-width:100%;padding:3px 6px;font-size:.95rem}
+.gap.ok{border-color:var(--lime);background:#173b26}.gap.bad{border-color:var(--heart);background:#3e1722}
+.gapsol{font-size:.85rem;color:var(--lime);font-weight:700;margin-left:4px}
+.bank{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.bank span{background:var(--panel2);border:2px solid var(--edge);border-radius:4px;padding:2px 8px;font-size:.88rem}
+.bank span.used{text-decoration:line-through;opacity:.4}
+.win{text-align:center;align-items:center}
+.bigstars{display:flex;gap:10px;justify-content:center}
+.bigstars svg{width:56px;height:56px;animation:pop .5s backwards}
+.bigstars svg:nth-child(2){animation-delay:.25s}.bigstars svg:nth-child(3){animation-delay:.5s}
+@keyframes pop{0%{transform:scale(0) rotate(-40deg)}70%{transform:scale(1.25)}100%{transform:scale(1)}}
+.score-big{font-family:var(--f-pixel);font-size:2rem;color:var(--coin);text-shadow:4px 4px 0 #000;font-variant-numeric:tabular-nums}
+table.hs{border-collapse:collapse;margin:0 auto;font-size:.95rem}
+table.hs td{padding:6px 10px;border-bottom:2px solid var(--edge);text-align:left}
+table.hs td.n{text-align:right;font-variant-numeric:tabular-nums;color:var(--coin)}
+.foot{color:var(--dim);font-size:.8rem;text-align:center}
+.kihinweis{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 24px;color:var(--dim);font-size:.75rem;text-align:center}
+:focus-visible{outline:3px solid var(--coin);outline-offset:2px}
+@media (max-width:520px){.map{grid-template-columns:1fr}.opts.two{grid-template-columns:1fr}.world{min-height:0}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<header class="hud"><div class="in">
+  <div class="logo">MODELL-QUEST</div>
+  <div class="coins" title="Punkte"><span class="coin" aria-hidden="true"></span><span id="coins">0</span></div>
+  <button class="iconbtn" id="snd" type="button" aria-pressed="false">Ton: aus</button>
+</div></header>
+</head><body>
+<main class="wrap" id="app"></main>
+<footer class="kihinweis">Dieses Material wurde mit Unterstützung von KI (Claude) erstellt und von HEU geprüft und angepasst.</footer>
+
+<script>
+(function(){
+const KEY="modellquest-v1";
+const BASE=10, RETRY=5;
+const LEVELS=[
+{ id:"globus", nr:1, title:"Globus-Check", sub:"Aufgabe 1 · Was zeigt ein Globus?",
+  sheet:"Lies den Fachtext noch <b>nicht</b>! Entscheide bei jeder Karte: Zeigt ein Globus das – oder nicht? Danach schreibst du <b>je drei Beispiele</b> in die Tabelle zu Aufgabe 1.",
+  tasks:[{type:"binary", opts:["✓ zeigt er","✗ zeigt er nicht"], items:[
+    ["die Form der Erde (Kugel)",0,"Der Globus ist rund wie die Erde."],
+    ["die Lage der Kontinente und Meere",0,"Kontinente und Ozeane sind an der richtigen Stelle eingezeichnet."],
+    ["die Lage der Länder zueinander",0,"Man sieht, welche Länder nebeneinander liegen."],
+    ["die Drehung um die schräge Erdachse",0,"Ein Globus lässt sich um seine schräge Achse drehen – wie die Erde."],
+    ["die echte Größe der Erde",1,"Der Globus ist stark verkleinert."],
+    ["das aktuelle Wetter und die Wolken",1,"Wetter verändert sich ständig – das zeigt ein Globus nicht."],
+    ["wo gerade Tag und wo Nacht ist",1,"Tag und Nacht, auch Jahreszeiten, sieht man auf einem Globus nicht."],
+    ["Straßen, Häuser und Menschen",1,"Dafür ist der Globus viel zu stark vereinfacht."],
+    ["die echte Höhe der Gebirge",1,"Gebirge sind höchstens angedeutet, nicht in echter Höhe."],
+    ["Veränderungen, z. B. neue Ländergrenzen",1,"Ein Globus zeigt den Stand, als er hergestellt wurde."]
+  ]}]},
+{ id:"vermutung", nr:2, title:"Deine Vermutung", sub:"Aufgabe 2 · Was ist ein Modell?",
+  sheet:"Schreibe zuerst mit deinem Partner oder deiner Partnerin eure Vermutung (Hypothese) auf das Arbeitsblatt zu Aufgabe 2b. Den Text liest du immer noch <b>nicht</b>.",
+  tasks:[
+    {type:"note", label:"Unsere Vermutung (Pflichtfeld – bleibt nur auf deinem Gerät):", ph:"Ein Modell ist … Ein Modell kann …, aber es kann nicht …"},
+    {type:"binary", stem:"Was passt zu einem Modell?", opts:["stimmt","stimmt nicht"], items:[
+      ["Ein Modell ist eine verkleinerte oder vereinfachte Nachbildung von etwas Echtem.",0,"Genau – wie der Globus für die Erde."],
+      ["Ein Modell ist genau so wie die Wirklichkeit.",1,"Ein Modell ist nie die Wirklichkeit selbst."],
+      ["Ein Modell kann das Wichtigste zeigen.",0,"Es lässt Unwichtiges weg und zeigt das Wichtige."],
+      ["Ein Modell kann alles zeigen, was es in der Wirklichkeit gibt.",1,"Beim Globus fehlen z. B. Wetter, Straßen und die echte Größe."],
+      ["Ein Modell hilft, etwas verständlich zu machen.",0,"Dafür benutzt man Modelle im Unterricht."],
+      ["Ein Modell muss man immer anfassen können, z. B. aus Kunststoff.",1,"Auch eine Zeichnung oder ein Schaubild kann ein Modell sein."]
+    ]},
+    {type:"self", stem:"Vergleiche mit eurer Vermutung. Das hatten wir schon:", items:[
+      "Ein Modell ist eine Nachbildung von etwas Echtem.",
+      "Ein Modell ist vereinfacht und zeigt das Wichtigste.",
+      "Ein Modell kann nicht alles zeigen – es ist nicht die Wirklichkeit selbst."
+    ]}
+  ],
+  solution:"<b>Mögliche Vermutung:</b> „Ein Modell ist eine verkleinerte bzw. vereinfachte Nachbildung von etwas Echtem. Es kann das Wichtigste zeigen und verständlich machen, aber es kann nicht alles zeigen – es ist nicht die Wirklichkeit selbst.“"},
+{ id:"lesen", nr:3, title:"Lese-Station", sub:"Schritt 2 · Fachtext lesen", read:true,
+  sheet:"Lies jetzt den Fachtext auf <b>Seite 2 und 3</b> deines Arbeitsblatts <b>zweimal</b> und unterstreiche wichtige Punkte. Unbekannte Wörter stehen in den Worterklärungen. (ca. 20 Min.)"},
+{ id:"text", nr:4, title:"Text-Detektiv", sub:"Aufgabe 3 · Vermutung prüfen (Z. 4–14)",
+  sheet:"Prüfe die Aussagen mit dem Text (Z. 4–14). Trage danach in die Tabelle zu Aufgabe 3 ein: <b>Was stimmt</b> an eurer Vermutung, und <b>was ergänzt oder korrigierst du</b>?",
+  tasks:[{type:"binary", opts:["richtig","falsch"], items:[
+    ["Die Begriffe „Theorie“ und „Modell“ werden häufig gleichbedeutend verwendet.",0,"Z. 4: „Die Begriffe Theorie und Modell werden häufig synonym verwendet.“"],
+    ["Modelle sind grafische oder symbolische Darstellungen bestimmter Phänomene.",0,"Z. 5–6."],
+    ["Modelle zeigen immer nur den Aufbau, also etwas Statisches.",1,"Z. 6–8: Modelle können statisch (Aufbau) oder dynamisch (Abläufe) sein."],
+    ["Ein Modell ist ein Abbild der Wirklichkeit, aber nicht die Wirklichkeit selbst.",0,"Z. 8–9: „ohne einen Anspruch auf Wirklichkeit zu besitzen“."],
+    ["Modelle sind immer sehr detailgetreu.",1,"Z. 9–10: von sehr abstrakt bzw. stark vereinfacht bis sehr detailgetreu."],
+    ["Modelle helfen, komplexe Phänomene zu verstehen.",0,"Z. 11–12: Sie dienen der Veranschaulichung."],
+    ["Modelle braucht man nur in der Schule.",1,"Z. 12–13: Sie sind Grundlage und Ergebnis von Forschung."],
+    ["Mit Modellen kann man Abläufe beobachten, analysieren und strukturieren.",0,"Z. 13–14."]
+  ]}],
+  solution:"<b>Das ergänzt du (Beispiele):</b><ul><li>grafische oder symbolische Darstellung (Z. 6)</li><li>statische oder dynamische Phänomene (Z. 6–8)</li><li>von sehr abstrakt bis sehr detailgetreu (Z. 9–10)</li><li>Grundlage und Ergebnis von Forschung (Z. 12–13)</li><li>„Theorie“ und „Modell“ oft synonym (Z. 4)</li></ul>"},
+{ id:"herz", nr:5, title:"Herz-Labor", sub:"Aufgabe 4 · Abb. 1 und Abb. 2",
+  sheet:"Schau dir <b>Abb. 1 und Abb. 2</b> auf Seite 2 an (Z. 15–20). Kreuze danach in der Tabelle zu Aufgabe 4 an und schreibe auf, was man damit verstehen kann.",
+  tasks:[
+    {type:"binary", opts:["statisch","dynamisch"], stem:"Zum Einstieg (Z. 15–17):", items:[
+      ["Das Herz als Organ mit seinem Aufbau ist ein … Phänomen.",0,"Z. 15: „unser Herz (Phänomen statischer Natur)“."],
+      ["Das Herz schlägt und pumpt Blut durch die Gefäße. Das ist ein … Phänomen.",1,"Z. 16–17: ein Phänomen dynamischer Natur."]
+    ]},
+    {type:"binary", opts:["naturgetreu","abstrakt"], stem:"Wie ist die Darstellung?", items:[
+      ["Abb. 1",0,"Abb. 1 zeigt das Herz so, wie es echt aussieht."],
+      ["Abb. 2",1,"Abb. 2 ist stark vereinfacht und zeigt nur das Prinzip."]
+    ]},
+    {type:"binary", opts:["statisch","dynamisch"], stem:"Was zeigt sie?", items:[
+      ["Abb. 1",0,"Abb. 1 zeigt den Aufbau – etwas Unbewegtes."],
+      ["Abb. 2",1,"Abb. 2 zeigt einen Ablauf: wie das Blut fließt."]
+    ]},
+    {type:"single", stem:"Was kann man mit Abb. 1 verstehen?", items:[[
+      ["den Aufbau des Herzens: Form, Vorhöfe, Kammern, große Gefäße, Herzkranzgefäße","wie schnell das Herz in Ruhe schlägt","wie das Blut in Füllungs- und Auswurfphase durch das Herz fließt"],0,"Z. 18: Modelle helfen, den Aufbau nachzuvollziehen (Abb. 1)."]]},
+    {type:"single", stem:"Was kann man mit Abb. 2 verstehen?", items:[[
+      ["wie das Herz von außen genau aussieht","wie das Blut in Füllungsphase (Diastole) und Auswurfphase (Systole) fließt und wie die Herzklappen arbeiten","wo die Herzkranzgefäße liegen"],1,"Z. 18–19: Modelle helfen, die Funktionsweise zu erfassen (Abb. 2)."]]}
+  ]},
+{ id:"sichtweise", nr:6, title:"Zeitreise der Modelle", sub:"Aufgabe 5 · Reihenfolge und Sichtweise",
+  sheet:"Trage zu Aufgabe 5a die vier Modelle in der richtigen Reihenfolge ein (Z. 25–28). Lies den Kasten „Erinnere dich!“ auf Seite 5 und schreibe zu 5b eine eigene Erklärung.",
+  tasks:[
+    {type:"order", stem:"Tippe die vier Modelle in der Reihenfolge an, in der sie im Text vorgestellt werden (Z. 25–28):",
+      items:["das biomedizinische Krankheitsmodell","das Risikofaktorenmodell","das Modell der Salutogenese","das Anforderungs-Ressourcen-Modell"],
+      explain:"Z. 25–28: biomedizinisches Krankheitsmodell → Risikofaktorenmodell → Salutogenese → Anforderungs-Ressourcen-Modell (zeitlich geordnet)."},
+    {type:"binary", stem:"Pathogenetisch (Krankheit) oder salutogenetisch (Gesundheit)?", opts:["pathogenetisch","salutogenetisch"], items:[
+      ["„Was macht den Menschen krank?“",0,"Pathogenese = Entstehung von Krankheit."],
+      ["„Was hält den Menschen gesund?“",1,"Salutogenese = Entstehung von Gesundheit."],
+      ["das biomedizinische Krankheitsmodell",0,"Ein frühes Modell mit Blick auf Krankheit."],
+      ["das Risikofaktorenmodell",0,"Es fragt, was Krankheit begünstigt."],
+      ["das Anforderungs-Ressourcen-Modell",1,"Ein späteres Modell mit Blick auf Gesundheit."],
+      ["Krankheit erkennen, behandeln oder verhindern",0,"Der Blick liegt auf der Krankheit."],
+      ["Gesundheit stärken",1,"Der Blick liegt auf der Gesundheit."]
+    ]},
+    {type:"single", stem:"Was bedeutet „von der pathogenetischen zur salutogenetischen Sichtweise“ (Z. 29–30)?", items:[[
+      ["Die Modelle werden mit der Zeit immer detailgetreuer.","Die frühen Modelle fragen, was krank macht – die späteren, was gesund hält. Der Blick verschiebt sich von der Krankheit zur Gesundheit.","Ein Mensch wird erst krank und danach wieder gesund.","Die Modelle sind nach ihrer Wichtigkeit geordnet."],1,"Die Modelle sind zeitlich geordnet. Der Blick verschiebt sich von der Krankheit hin zur Gesundheit."]]}
+  ]},
+{ id:"merke", nr:7, title:"Merkkasten", sub:"Aufgabe 6 · Lückentext",
+  sheet:"Fülle die Lücken hier aus. Jedes Wort aus dem Wortspeicher passt genau einmal. Übertrage danach den Merkkasten auf Seite 5 deines Arbeitsblatts.",
+  tasks:[{type:"gaps"}]},
+{ id:"sprinter", nr:8, title:"Sprinter: Modell-Scanner", sub:"Sprinteraufgabe · weitere Modelle",
+  sheet:"Ordne jedes Alltagsmodell ein. Danach wählst du eines aus (oder ein eigenes) und beschreibst es auf Seite 6: Was kann man damit verstehen – und was nicht?",
+  tasks:[
+    {type:"binary", opts:["naturgetreu","abstrakt"], stem:"Darstellung", items:[
+      ["Skelett im Bio-Raum",0,"Knochen in echter Form und Lage."],
+      ["Stadtplan",1,"Linien, Farben und Symbole statt echter Häuser."],
+      ["Navi",1,"Vereinfachte Karte mit Pfeilen und Route."],
+      ["Wetterkarte",1,"Wetter wird mit Symbolen gezeigt."],
+      ["Schaubild Blutkreislauf",1,"Stark vereinfacht, nicht das echte Aussehen der Gefäße."]
+    ]},
+    {type:"binary", opts:["statisch","dynamisch"], stem:"Phänomen", items:[
+      ["Skelett im Bio-Raum",0,"Aufbau der Knochen – keine Bewegung."],
+      ["Stadtplan",0,"Lage von Straßen und Orten – kein Verkehr."],
+      ["Navi",1,"Aktuelle Position und Route verändern sich."],
+      ["Wetterkarte",1,"Sie zeigt den Wetterverlauf."],
+      ["Schaubild Blutkreislauf",1,"Es zeigt den Weg des Blutes durch Körper- und Lungenkreislauf."]
+    ]},
+    {type:"single", stem:"Was kann ein Stadtplan NICHT zeigen?", items:[[
+      ["wo eine Straße liegt","wie man von der Schule zum Bahnhof kommt","wie viel Verkehr gerade auf der Straße ist"],2,"Ein Stadtplan ist statisch: kein Verkehr, keine Höhen, kein Aussehen der Häuser."]]}
+  ]},
+{ id:"fachwort", nr:9, title:"Fachwort-Arena", sub:"Erweiterung · Worterklärungen",
+  sheet:"Nutze die Worterklärungen auf Seite 3. Schreibe jedes Fachwort, das du noch nicht sicher kanntest, mit Erklärung in dein Heft.",
+  tasks:[{type:"single", items:[
+    [["gleichbedeutend","gegensätzlich","zeitlich geordnet"],0,"synonym = gleichbedeutend, z. B. „Theorie“ und „Modell“ (Z. 4).","Was bedeutet „synonym“?"],
+    [["ein Gerät zum Messen","eine Erscheinung oder ein Vorgang, den man beobachten kann","eine Krankheit"],1,"Phänomen = Erscheinung, Vorgang, den man beobachten kann.","Was ist ein „Phänomen“?"],
+    [["bewegt, ein Ablauf","unbewegt, gleichbleibend","stark vereinfacht"],1,"statisch = unbewegt, gleichbleibend, z. B. der Aufbau des Herzens.","Was bedeutet „statisch“?"],
+    [["unbewegt, gleichbleibend","mit vielen Einzelheiten","bewegt, ein Ablauf"],2,"dynamisch = bewegt, ein Ablauf, z. B. der Herzschlag.","Was bedeutet „dynamisch“?"],
+    [["stark vereinfacht, nur das Wichtigste","besonders genau und echt","sehr groß"],0,"abstrakt = stark vereinfacht, nur das Wichtigste.","Was bedeutet „abstrakt“?"],
+    [["mit vielen Einzelheiten, naturgetreu","nur das Wichtigste","zeitlich geordnet"],0,"detailgetreu = mit vielen Einzelheiten, naturgetreu.","Was bedeutet „detailgetreu“?"],
+    [["etwas verstecken","etwas sichtbar und verständlich machen","etwas messen"],1,"Veranschaulichung = etwas sichtbar und verständlich machen.","Was bedeutet „Veranschaulichung“?"],
+    [["einfach","vielschichtig, kompliziert","unwichtig"],1,"komplex = vielschichtig, kompliziert.","Was bedeutet „komplex“?"],
+    [["nach dem Alphabet","nach Wichtigkeit","zeitlich geordnet"],2,"chronologisch = zeitlich geordnet (Z. 29).","Was bedeutet „chronologisch“?"],
+    [["Das Modell behauptet nicht, die Wirklichkeit selbst zu sein.","Das Modell ist falsch.","Das Modell ist teurer als das Original."],0,"Ein Modell ist ein Abbild, nicht die Wirklichkeit selbst (Z. 8–9).","Was heißt „ohne Anspruch auf Wirklichkeit“?"]
+  ]}]},
+{ id:"fallakte", nr:10, title:"Fall-Akte: krank oder gesund?", sub:"Erweiterung · Fallbeispiele Pathogenese und Salutogenese",
+  sheet:"Lies jeden Fall genau. Entscheide: Steht die Frage „Was macht krank?“ (pathogenetisch) oder „Was hält gesund?“ (salutogenetisch) im Mittelpunkt? Der Kasten „Erinnere dich!“ auf Seite 5 hilft dir.",
+  tasks:[{type:"binary", opts:["pathogenetisch","salutogenetisch"], items:[
+    ["Eine Ärztin sucht bei Herrn K. nach der Ursache seiner starken Bauchschmerzen.",0,"Gesucht wird die Ursache einer Krankheit."],
+    ["Lena hat Prüfungsstress und bleibt trotzdem gesund. Sie merkt: Ihre Freundinnen und der Sport geben ihr Kraft.",1,"Im Mittelpunkt steht, was Lena gesund hält."],
+    ["Das Gesundheitsamt untersucht, welche Bakterien eine Lebensmittelvergiftung in einer Kantine ausgelöst haben.",0,"Es geht um die Entstehung einer Krankheit."],
+    ["Eine Schule richtet einen Ruheraum und Bewegungspausen ein, damit sich die Schülerinnen und Schüler wohlfühlen.",1,"Gesundheit soll gestärkt werden."],
+    ["Ein Raucher wird darüber informiert, dass Rauchen sein Risiko für Lungenkrebs erhöht.",0,"Es geht um einen Risikofaktor für Krankheit."],
+    ["Eine Pflegekraft fragt eine ältere Dame im Pflegeheim, was ihr im Alltag Freude und Kraft gibt.",1,"Gesucht werden Kraftquellen, die gesund halten."],
+    ["Im Labor wird der Blutzucker gemessen, um Diabetes früh zu erkennen.",0,"Krankheit erkennen ist pathogenetisch."],
+    ["Ein Betrieb fragt: Was hält unsere Beschäftigten trotz Schichtarbeit gesund?",1,"Die Frage „Was hält gesund?“ ist salutogenetisch."],
+    ["Ein Kinderarzt impft gegen Masern, damit die Krankheit nicht ausbricht.",0,"Krankheit verhindern zählt zur pathogenetischen Sichtweise."],
+    ["Ein Jugendzentrum stärkt Selbstvertrauen und Freundschaften der Jugendlichen.",1,"Stärken und Ressourcen stehen im Mittelpunkt."]
+  ]}],
+  solution:"<b>Merkhilfe:</b> Krankheit <b>erkennen, behandeln, verhindern</b> → pathogenetisch. Gesundheit <b>stärken</b>, Kraftquellen suchen → salutogenetisch."},
+{ id:"labor", nr:11, title:"Modell-Labor Gesundheit", sub:"Erweiterung · Modelle aus dem Gesundheitsbereich",
+  sheet:"Hier geht es um Modelle, die dir im Gesundheitsbereich begegnen. Ordne sie mit den Begriffen aus dem Text ein (Z. 5–10).",
+  tasks:[
+    {type:"binary", opts:["naturgetreu","abstrakt"], stem:"Darstellung", items:[
+      ["Torso aus Kunststoff mit herausnehmbaren Organen",0,"Organe in echter Form, Farbe und Lage."],
+      ["Fieberkurve im Krankenhaus",1,"Linie und Zahlen statt echtem Körper."],
+      ["Ernährungspyramide",1,"Bilder und Stufen zeigen nur das Wichtigste."],
+      ["EKG-Kurve (Herzstromkurve)",1,"Eine Linie zeigt die Herzaktivität vereinfacht."],
+      ["Zahnmodell in der Zahnarztpraxis",0,"Zähne in echter Form, nur vergrößert."]
+    ]},
+    {type:"binary", opts:["statisch","dynamisch"], stem:"Phänomen", items:[
+      ["Torso aus Kunststoff mit herausnehmbaren Organen",0,"Er zeigt den Aufbau, keine Abläufe."],
+      ["Fieberkurve im Krankenhaus",1,"Sie zeigt, wie sich die Temperatur über die Zeit verändert."],
+      ["Ernährungspyramide",0,"Sie zeigt eine gleichbleibende Empfehlung."],
+      ["EKG-Kurve (Herzstromkurve)",1,"Sie zeigt den Ablauf jedes Herzschlags."],
+      ["Zahnmodell in der Zahnarztpraxis",0,"Es zeigt den Aufbau des Gebisses."]
+    ]},
+    {type:"single", items:[
+      [["wo Herz, Lunge und Leber liegen","wie die Organe arbeiten und sich bewegen","welche Form der Magen hat"],1,"Der Torso ist statisch: Abläufe wie Atmung oder Herzschlag zeigt er nicht.","Was kann der Kunststoff-Torso NICHT zeigen?"],
+      [["welche Lebensmittel man reichlich und welche man sparsam essen sollte","wie viel genau eine bestimmte Person an einem Tag braucht","dass Getränke wichtig sind"],1,"Ein Modell vereinfacht: Es gilt allgemein, nicht für jeden einzelnen Menschen.","Was kann die Ernährungspyramide NICHT zeigen?"],
+      [["wie sich die Körpertemperatur in den letzten Tagen verändert hat","wann das Fieber am höchsten war","warum der Mensch Fieber hat"],2,"Die Kurve zeigt den Verlauf, aber nicht die Ursache.","Was kann eine Fieberkurve NICHT zeigen?"]
+    ]}
+  ]},
+{ id:"grenzen", nr:12, title:"Richtig oder falsch?", sub:"Erweiterung · Was Modelle können und was nicht",
+  sheet:"Richtig oder falsch? Prüfe jede Aussage mit dem Fachtext und dem Merkkasten.",
+  tasks:[{type:"binary", opts:["richtig","falsch"], items:[
+    ["Je detailgetreuer ein Modell ist, desto besser ist es immer.",1,"Es kommt darauf an, was gezeigt oder erklärt werden soll (Merkkasten). Abb. 2 ist abstrakt und erklärt die Herzklappen trotzdem besser."],
+    ["Derselbe Gegenstand kann je nach Ziel ganz unterschiedlich als Modell dargestellt werden.",0,"Beispiel Herz: Abb. 1 zeigt den Aufbau, Abb. 2 die Funktionsweise."],
+    ["Gesundheitsmodelle betrachten „Gesundheit – Krankheit“ aus unterschiedlichen Blickwinkeln.",0,"Siehe Merkkasten."],
+    ["Ein Modell zeigt immer alle Einzelheiten der Wirklichkeit.",1,"Modelle vereinfachen und reduzieren auf das Wesentliche."],
+    ["Die vier Gesundheitsmodelle im Text sind nach ihrer Wichtigkeit geordnet.",1,"Sie sind chronologisch, also zeitlich geordnet (Z. 29)."],
+    ["Die Pathogenese fragt: „Was hält den Menschen gesund?“",1,"Das fragt die Salutogenese. Die Pathogenese fragt: „Was macht den Menschen krank?“"],
+    ["„Salus“ ist lateinisch und bedeutet Gesundheit, Heil.",0,"Siehe „Erinnere dich!“ auf Seite 5."],
+    ["Modelle helfen auch der Forschung, nicht nur Lernenden.",0,"Z. 12–13: Grundlage und Ergebnis von Forschungsarbeit."]
+  ]}]},
+{ id:"transfer", nr:13, title:"Transfer ins Heft", sub:"Erweiterung · Schreibaufgabe",
+  sheet:"Diese Aufgabe bearbeitest du <b>schriftlich in deinem Heft</b> (ca. 20 Min.). Prüfe danach selbst mit der Checkliste.",
+  tasks:[{type:"self", intro:"<b>Transferaufgabe</b><ol style=\"margin:6px 0 0;padding-left:20px\"><li>Wähle ein Modell aus dem Gesundheitsbereich, z. B. Fieberkurve, Ernährungspyramide, Torso im Bio-Raum, Schaubild Blutkreislauf oder EKG-Kurve.</li><li>Beschreibe es in deinem Heft in 6 bis 8 Sätzen mit den Fachbegriffen aus dem Text: Ist es naturgetreu oder abstrakt? Zeigt es etwas Statisches oder Dynamisches? Was veranschaulicht es? Was kann es nicht zeigen?</li><li>Erkläre in 2 bis 3 Sätzen einer Mitschülerin oder einem Mitschüler, die heute gefehlt haben, warum man in den Gesundheitswissenschaften Modelle braucht.</li></ol>",
+    stem:"Checkliste: Das habe ich in meinem Heft erfüllt:", items:[
+      "Ich habe ein Modell genannt und kurz beschrieben, was es darstellt.",
+      "Ich habe begründet, ob es naturgetreu oder abstrakt ist.",
+      "Ich habe begründet, ob es etwas Statisches oder Dynamisches zeigt.",
+      "Ich habe erklärt, was man mit dem Modell verstehen kann.",
+      "Ich habe mindestens eine Grenze genannt: Was zeigt das Modell nicht?",
+      "Ich habe erklärt, warum man in den Gesundheitswissenschaften Modelle braucht.",
+      "Ich habe mindestens drei Fachbegriffe aus dem Text richtig verwendet."
+  ]}],
+  solution:"<b>Beispiel (Fieberkurve):</b> Die Fieberkurve ist ein abstraktes Modell, weil sie die Körpertemperatur nur als Linie mit Zahlen darstellt. Sie zeigt ein dynamisches Phänomen, nämlich wie sich die Temperatur über mehrere Tage verändert. So kann das Pflegepersonal schnell erkennen, wann das Fieber steigt oder sinkt. Die Kurve zeigt aber nicht, warum der Mensch Fieber hat oder wie er sich fühlt. <br><b>Warum Modelle?</b> Gesundheit und Krankheit hängen von vielen Dingen ab und sind komplex. Modelle vereinfachen diese Zusammenhänge und machen sie verständlich. Sie betrachten das Thema aus unterschiedlichen Blickwinkeln."}
+];
+/* Merkkasten: [Text davor, Lösung]… */
+const GAPS=[
+ ["Ein Modell ist eine grafische, symbolische oder plastische ","Darstellung"," eines Gegenstandes oder Phänomens. Modelle können ","statisch"," oder ","dynamisch"," sein."],
+ ["Modelle stellen ein ","Abbild"," der Wirklichkeit dar, ohne einen ","Anspruch"," auf die Wirklichkeit zu haben. Sie können sehr ","abstrakt"," / vereinfacht bis sehr ","detailgetreu"," sein – je nachdem, was mit dem Modell gezeigt oder erklärt werden soll."],
+ ["Modelle dienen der ","Veranschaulichung",". Durch Vereinfachung oder Reduzierung auf das ","Wesentliche"," helfen sie, ","komplexe"," Phänomene zu verstehen."],
+ ["In den Gesundheitswissenschaften werden Modelle auch mit ","Theorien"," gleichgesetzt. Gesundheitsmodelle sollen helfen, die komplexen ","Zusammenhänge"," zwischen „Gesundheit und Krankheit“ verständlich zu machen. Sie betrachten das Beziehungsgefüge „Gesundheit – Krankheit“ aus unterschiedlichen ","Blickwinkeln"," oder bezogen auf bestimmte Teilaspekte."],
+ ["Die Gesundheitsmodelle zeigen auch den Perspektivwechsel von der ","pathogenetischen"," hin zur ","salutogenetischen"," Sichtweise."]
+];
+const BANK=["Abbild","abstrakt","Anspruch","Blickwinkeln","Darstellung","detailgetreu","dynamisch","komplexe","pathogenetischen","salutogenetischen","statisch","Theorien","Veranschaulichung","Wesentliche","Zusammenhänge"];
+const RANKS_G=[[0,"Level 1 · Neuling"],[25,"Level 2 · Entdecker:in"],[50,"Level 3 · Kenner:in"],[75,"Level 4 · Profi"],[95,"Level 5 · Meister:in"]];
+
+/* Basis-Punkte (ohne Kombo) als Maßstab für die Ränge */
+function baseMax(L){ if(L.read) return 0; let m=0;(L.tasks||[]).forEach(t=>{
+  if(t.type==="binary"||t.type==="single") m+=t.items.length*BASE; else if(t.type==="order") m+=2*BASE;
+  else if(t.type==="self") m+=t.items.length*RETRY; else if(t.type==="gaps") m+=BANK.length*BASE;}); return m; }
+const BASETOTAL=LEVELS.reduce((a,L)=>a+baseMax(L),0);
+
+let S={done:{},note:"",sound:false,runs:{},view:null};
+try{const r=localStorage.getItem(KEY); if(r) S=Object.assign(S,JSON.parse(r));}catch(e){}
+S.runs=S.runs||{};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}};
+const total=()=>Object.values(S.done).reduce((a,d)=>a+(d.points||0),0);
+const pct=()=>Math.min(100,Math.round(total()/BASETOTAL*100));
+function rank(){let r=RANKS_G[0][1];RANKS_G.forEach(([t,n])=>{if(pct()>=t)r=n;});return r;}
+function nextRank(){const p=pct();const n=RANKS_G.find(([t])=>t>p);return n?n:null;}
+const app=document.getElementById("app");
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+function el(t,c,h){const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;}
+function bump(){document.getElementById("coins").textContent=total();}
+
+/* Pixel-Grafiken */
+const HEART=(on)=>'<svg class="heart" viewBox="0 0 11 10" shape-rendering="crispEdges" aria-hidden="true"><path fill="'+(on?"var(--heart)":"#3a4390")+'" d="M1 1h3v1h1v1h1V2h1V1h3v1h1v3h-1v1H9v1H8v1H7v1H4V8H3V7H2V6H1V5H0V2h1z"/>'+(on?'<path fill="#ffc2cc" d="M2 2h1v1H2z"/>':'')+'</svg>';
+const STAR=(on)=>'<svg viewBox="0 0 11 11" shape-rendering="crispEdges" aria-hidden="true"><path fill="'+(on?"var(--coin)":"#3a4390")+'" d="M5 0h1v3h2v1h3v1H9v1H8v2h1v2H8V9H7V8H4v1H3v1H2V8h1V6H2V5H0V4h3V3h2z"/></svg>';
+const hearts=(n)=>'<span class="hearts" aria-label="'+n+' von 5 Herzen">'+[0,1,2,3,4].map(i=>HEART(i<n)).join("")+'</span>';
+const smallStars=(n)=>'<span style="display:flex;gap:2px" aria-label="'+n+' von 3 Sternen">'+[0,1,2].map(i=>'<span style="width:16px;height:16px;display:inline-block">'+STAR(i<n)+'</span>').join("")+'</span>';
+
+/* Töne (nur nach Tippen, standardmäßig aus) */
+let ac=null;
+function beep(kind){ if(!S.sound) return; try{ ac=ac||new (window.AudioContext||window.webkitAudioContext)();
+  const seq={ok:[[660,.07],[990,.12]],bad:[[220,.18]],win:[[523,.1],[659,.1],[784,.1],[1047,.25]],tap:[[440,.04]]}[kind]||[];
+  let t=ac.currentTime; seq.forEach(([f,d])=>{const o=ac.createOscillator(),g=ac.createGain();o.type="square";o.frequency.value=f;g.gain.setValueAtTime(.06,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(ac.destination);o.start(t);o.stop(t+d);t+=d;});}catch(e){} }
+const sndBtn=document.getElementById("snd");
+function sndLabel(){sndBtn.textContent="Ton: "+(S.sound?"an":"aus");sndBtn.setAttribute("aria-pressed",S.sound?"true":"false");}
+sndBtn.onclick=()=>{S.sound=!S.sound;save();sndLabel();beep("tap");}; sndLabel();
+function floatTxt(t,minus){const f=el("div","float"+(minus?" minus":""),esc(t));document.body.appendChild(f);setTimeout(()=>f.remove(),1000);}
+
+/* ---------- Weltkarte ---------- */
+function home(){
+  S.view=null; save();
+  window.scrollTo(0,0); app.innerHTML=""; bump();
+  const w=el("div","stack");
+  const nr=nextRank();
+  w.appendChild(el("div","stack",'<span class="label">GESUNDHEIT · HF4 · AS4.1</span><h1>Modell-Quest</h1><p class="lead">Dreizehn Welten zum Arbeitsblatt „Modelle von Gesundheit und Krankheit“. Jede richtige Antwort bringt Münzen, mehrere richtige hintereinander geben eine Kombo. Pro Welt hast du fünf Herzen, jeder Fehler kostet eins. Mit 4–5 Herzen am Ende gibt es drei Sterne, mit 2–3 Herzen zwei Sterne.</p>'));
+  const xp=el("div","box stack"); xp.style.gap="8px";
+  xp.innerHTML='<div class="rankline"><span>Rang: <b>'+esc(rank())+'</b></span><span>'+(nr?'Nächster Rang bei '+nr[0]+' %':'Höchster Rang erreicht!')+'</span></div><div class="xp" role="progressbar" aria-valuenow="'+pct()+'" aria-valuemin="0" aria-valuemax="100"><span style="width:'+pct()+'%"></span></div>';
+  w.appendChild(xp);
+  w.appendChild(el("div","tip",'<b>Regel:</b> Erst auf dem Arbeitsblatt arbeiten, dann hier prüfen. Was falsch war, verbesserst du auf dem Papier.'));
+  const map=el("div","map");
+  const firstOpen=LEVELS.findIndex((L,i)=>!S.done[L.id]&&(i===0||S.done[LEVELS[i-1].id]));
+  LEVELS.forEach((L,i)=>{
+    const d=S.done[L.id], open=i===0||!!S.done[LEVELS[i-1].id];
+    const b=el("button","world"+(d?" done":"")+(i===firstOpen?" next":"")+(L.id==="merke"?" boss":""));
+    b.type="button"; b.disabled=!open;
+    const tag=L.id==="merke"?"BOSS · WELT "+L.nr:L.id==="sprinter"?"BONUS · WELT "+L.nr:L.id==="transfer"?"FINALE · WELT "+L.nr:L.nr>8?"EXTRA · WELT "+L.nr:"WELT "+L.nr;
+    b.innerHTML='<span class="nr">'+tag+'</span><span class="nm">'+esc(L.title)+'</span><span class="sb">'+esc(L.sub)+'</span><span class="st">'+(d?(L.read?"✔ erledigt":smallStars(d.stars)+'<span style="margin-left:6px;color:var(--coin)">'+d.points+' Münzen</span>'):open?"▶ Start":"🔒 gesperrt")+'</span>';
+    b.onclick=()=>{beep("tap");play(i);};
+    map.appendChild(b);
+  });
+  w.appendChild(map);
+  if(LEVELS.every(L=>S.done[L.id])){const f=el("button","btn red","Highscore ansehen");f.type="button";f.onclick=finale;w.appendChild(f);}
+  const foot=el("div","stack"); foot.style.gap="10px"; foot.style.alignItems="center";
+  foot.appendChild(el("p","foot","Kein Login, keine Namen: Dein Spielstand bleibt nur auf diesem Gerät."));
+  const rs=el("div","btns"); const rb=el("button","btn ghost","Neues Spiel");rb.type="button";
+  rb.onclick=()=>{rs.innerHTML="";rs.appendChild(el("span","foot","Spielstand wirklich löschen?"));const y=el("button","btn red","Ja");y.type="button";y.onclick=()=>{S={done:{},note:"",sound:S.sound,runs:{},view:null};save();home();};const n=el("button","btn ghost","Nein");n.type="button";n.onclick=home;rs.append(y,n);};
+  rs.appendChild(rb); foot.appendChild(rs); w.appendChild(foot);
+  app.appendChild(w);
+}
+
+function noteOk(v){v=(v||"").trim();const w=v.split(/\s+/).filter(x=>/[a-zäöüß]{2,}/i.test(x));return v.length>=30&&w.length>=6&&new Set(w.map(x=>x.toLowerCase())).size>=4;}
+function noteHint(v){v=(v||"").trim();const n=v.split(/\s+/).filter(x=>/[a-zäöüß]{2,}/i.test(x)).length;return noteOk(v)?"✓ Danke, eure Vermutung ist eingetragen.":"Pflichtfeld: Schreibe eure Vermutung in ganzen Sätzen (mindestens 6 Wörter). Bisher: "+n+" Wörter.";}
+/* ---------- Eine Welt spielen ---------- */
+function buildQueue(L){
+  const q=[];
+  L.tasks.forEach(t=>{
+    if(t.type==="note") q.push({kind:"note",t});
+    else if(t.type==="binary") shuffle(t.items).forEach(([s,a,e])=>q.push({kind:"choice",label:t.stem||"",prompt:s,opts:t.opts,correct:a,explain:e,two:true}));
+    else if(t.type==="single") t.items.forEach(([opts,a,e,st])=>{const idx=shuffle(opts.map((o,k)=>k));q.push({kind:"choice",label:"",prompt:st||t.stem,opts:idx.map(k=>opts[k]),correct:idx.indexOf(a),explain:e});});
+    else if(t.type==="order") q.push({kind:"order",t});
+    else if(t.type==="self") q.push({kind:"self",t});
+    else if(t.type==="gaps") q.push({kind:"gaps"});
+  });
+  return q;
+}
+function play(i,fresh){
+  const L=LEVELS[i]; window.scrollTo(0,0); app.innerHTML="";
+  if(L.read) return readGate(i);
+  if(fresh) delete S.runs[L.id];
+  const saved=S.runs[L.id];
+  const run=saved&&saved.q&&saved.pos<saved.q.length?saved:{hearts:5,combo:0,points:0,q:buildQueue(L),pos:0};
+  S.view={w:"level",i}; save();
+  const persist=(r)=>{S.runs[L.id]=JSON.parse(JSON.stringify(r));S.view={w:"level",i};save();};
+  const w=el("div","stack");
+  const top=el("div","topline");
+  const back=el("button","btn ghost","‹ Karte");back.type="button";back.onclick=home;
+  const hz=el("span"); const cb=el("span","combo","KOMBO x1"); const pt=el("span","coins");
+  top.append(back,hz,cb,pt); w.appendChild(top);
+  const bar=el("div","bar",'<span style="width:0"></span>'); w.appendChild(bar);
+  w.appendChild(el("div","stack",'<span class="label">WELT '+L.nr+' · '+esc(L.sub)+'</span><h2>'+esc(L.title)+'</h2>')).style.gap="6px";
+  w.appendChild(el("div","tip",'<b>Arbeitsblatt:</b> '+L.sheet));
+  const stage=el("div","stack"); w.appendChild(stage); app.appendChild(w);
+  const mult=()=>run.combo>=6?3:run.combo>=3?2:1;
+  function hud(){hz.innerHTML=hearts(run.hearts);const m=mult();cb.textContent="KOMBO x"+m;cb.classList.toggle("hot",m>1);pt.innerHTML='<span class="coin"></span>'+run.points;
+    bar.firstChild.style.width=(run.pos/run.q.length*100)+"%";}
+  function gain(n){run.points+=n;floatTxt("+"+n);beep("ok");}
+  function lose(){if(run.hearts>0){run.hearts--;floatTxt("−1 ♥",true);}run.combo=0;beep("bad");}
+  function next(){run.pos++;hud();if(run.pos>=run.q.length) return win();show(run.q[run.pos]);window.scrollTo({top:0,behavior:"smooth"});}
+  function nextBtn(box){const b=el("button","btn","Weiter ▶");b.type="button";b.onclick=next;box.appendChild(b);setTimeout(()=>b.focus({preventScroll:true}),50);}
+  function show(c){
+    persist(run);
+    stage.innerHTML=""; hud();
+    const box=el("div","box stack");
+    if(c.kind==="choice"){
+      if(c.label) box.appendChild(el("span","label",esc(c.label.toUpperCase())));
+      if(c.retry) box.appendChild(el("span","label",'<span style="color:var(--coin)">2. VERSUCH · '+RETRY+' MÜNZEN</span>'));
+      box.appendChild(el("p","prompt",esc(c.prompt)));
+      const o=el("div","opts"+(c.two&&c.opts.every(x=>x.length<22)?" two":"")); const bs=[];
+      c.opts.forEach((txt,k)=>{const b=el("button","opt",esc(txt));b.type="button";bs.push(b);o.appendChild(b);
+        b.onclick=()=>{bs.forEach(x=>x.disabled=true);const ok=k===c.correct;
+          const fb=el("div","feedback "+(ok?"good":"bad"));
+          if(ok){b.classList.add("right");let n;if(c.retry){n=RETRY;}else{run.combo++;n=BASE*mult();}gain(n);fb.innerHTML=(c.retry?"Jetzt stimmt’s!":["Richtig!","Treffer!","Stark!","Genau!"][Math.floor(Math.random()*4)])+'<span class="why">'+esc(c.explain||"")+'</span>';}
+          else{b.classList.add("wrong");bs[c.correct].classList.add("right");if(!c.retry){lose();run.q.push(Object.assign({},c,{retry:true,opts:c.opts}));fb.innerHTML='Leider falsch. Richtig ist: „'+esc(c.opts[c.correct])+'“<span class="why">'+esc(c.explain||"")+' Die Frage kommt am Ende noch einmal.</span>';}
+            else{fb.innerHTML='Wieder falsch. Richtig ist: „'+esc(c.opts[c.correct])+'“<span class="why">'+esc(c.explain||"")+' Verbessere das auf deinem Arbeitsblatt.</span>';beep("bad");}}
+          hud();persist(Object.assign({},run,{pos:run.pos+1}));box.appendChild(fb);nextBtn(box);};});
+      box.appendChild(o);
+    } else if(c.kind==="note"){
+      box.appendChild(el("label","prompt",esc(c.t.label))).setAttribute("for","note");
+      const ta=el("textarea");ta.id="note";ta.placeholder=c.t.ph;ta.value=S.note||"";box.appendChild(ta);const hint=el("p","foot");hint.style.textAlign="left";box.appendChild(hint);
+      const nb=el("button","btn","Weiter ▶");nb.type="button";nb.onclick=()=>{if(noteOk(ta.value))next();};box.appendChild(nb);
+      const upd=()=>{const ok=noteOk(ta.value);nb.disabled=!ok;hint.textContent=noteHint(ta.value);hint.style.color=ok?"var(--lime)":"var(--dim)";};
+      ta.oninput=()=>{S.note=ta.value;save();upd();};upd();
+    } else if(c.kind==="self"){
+      box.appendChild(el("span","label","SELBST-CHECK · "+RETRY+" MÜNZEN JE HAKEN"));
+      if(c.t.intro) box.appendChild(el("div","tip",c.t.intro));
+      box.appendChild(el("p","prompt",esc(c.t.stem)));
+      if(L.solution&&L.id==="vermutung") box.appendChild(el("div","tip",L.solution));
+      const cbs=c.t.items.map((s,k)=>{const lab=el("label","check",'<input type="checkbox" id="self'+k+'"><span>'+esc(s)+'</span>');box.appendChild(lab);return lab.querySelector("input");});
+      const b=el("button","btn","Fertig ▶");b.type="button";b.onclick=()=>{const n=cbs.filter(x=>x.checked).length*RETRY;cbs.forEach(x=>x.disabled=true);if(n)gain(n);next();};box.appendChild(b);
+    } else if(c.kind==="order"){
+      const t=c.t; box.appendChild(el("span","label","SORTIER-RÄTSEL · "+2*BASE+" MÜNZEN × KOMBO"));
+      box.appendChild(el("p","prompt",esc(t.stem)));
+      const slots=el("div","slots"),pool=el("div","opts");let seq=[];
+      const draw=()=>{slots.innerHTML="";for(let k=0;k<t.items.length;k++)slots.appendChild(el("div","slot"+(seq[k]!=null?" filled":""),seq[k]!=null?esc(t.items[seq[k]]):'<span style="color:var(--dim)">…</span>'));pool.querySelectorAll(".opt").forEach(b=>b.hidden=seq.includes(+b.dataset.i));chk.disabled=seq.length<t.items.length;};
+      shuffle(t.items.map((s,k)=>k)).forEach(k=>{const b=el("button","opt",esc(t.items[k]));b.type="button";b.dataset.i=k;b.onclick=()=>{beep("tap");seq.push(k);draw();};pool.appendChild(b);});
+      const ctr=el("div","btns");const undo=el("button","btn ghost","Rückgängig");undo.type="button";undo.onclick=()=>{seq.pop();draw();};
+      const chk=el("button","btn","Prüfen");chk.type="button";
+      chk.onclick=()=>{ctr.remove();pool.remove();const ok=seq.every((x,k)=>x===k);
+        [...slots.children].forEach((s,k)=>s.classList.add(seq[k]===k?"ok":"no"));
+        const fb=el("div","feedback "+(ok?"good":"bad"));
+        if(ok){run.combo++;gain(2*BASE*mult());fb.innerHTML='Perfekt sortiert!<span class="why">'+esc(t.explain)+'</span>';}
+        else{lose();seq=t.items.map((s,k)=>k);draw();[...slots.children].forEach(s=>s.classList.add("ok"));fb.innerHTML='Nicht ganz. Oben siehst du jetzt die richtige Reihenfolge.<span class="why">'+esc(t.explain)+'</span>';}
+        hud();box.appendChild(fb);nextBtn(box);};
+      ctr.append(undo,chk);box.append(slots,pool,ctr);draw();
+    } else if(c.kind==="gaps"){
+      box.appendChild(el("span","label",'<span style="color:var(--heart)">BOSS-KAMPF · JEDE RUNDE MIT FEHLERN KOSTET EIN HERZ</span>'));
+      const bank=el("div","bank");BANK.forEach(x=>{const s=el("span","",esc(x));s.dataset.w=x;bank.appendChild(s);});
+      box.appendChild(el("p","","<b>Wortspeicher</b>"));box.appendChild(bank);
+      const m=el("div","merke",'<p class="prompt">Merke: Modelle von Gesundheit und Krankheit</p>');const ul=el("ul");const sels=[];let gi=0;
+      const ref=()=>{const u=sels.map(g=>g.sel.value);bank.querySelectorAll("span").forEach(s=>s.classList.toggle("used",u.includes(s.dataset.w)));};
+      GAPS.forEach(parts=>{const li=el("li");parts.forEach((p,k)=>{if(k%2===0){li.appendChild(document.createTextNode(p));return;}
+        const sel=document.createElement("select");sel.className="gap";sel.id="gap"+(gi++);sel.setAttribute("aria-label","Lücke");
+        sel.innerHTML='<option value="">– wählen –</option>'+BANK.map(x=>'<option>'+esc(x)+'</option>').join("");sel.onchange=ref;
+        const sol=el("span","gapsol");sol.hidden=true;li.append(sel,sol);sels.push({sel,ans:p,sol});});ul.appendChild(li);});
+      m.appendChild(ul);box.appendChild(m);
+      const isOk=(g,k)=>{if(g.ans==="statisch"||g.ans==="dynamisch"){const o=sels[g.ans==="statisch"?k+1:k-1].sel.value;return ["statisch","dynamisch"].includes(g.sel.value)&&g.sel.value!==o;}return g.sel.value===g.ans;};
+      let round=1;const got=new Set();const msg=el("div");box.appendChild(msg);
+      const chk=el("button","btn red","Angriff! (Prüfen)");chk.type="button";box.appendChild(chk);
+      chk.onclick=()=>{const open=sels.filter(g=>!g.sel.value).length;if(open){msg.className="feedback bad";msg.textContent="Es fehlen noch "+open+" Lücken.";return;}
+        let n=0;sels.forEach((g,k)=>{if(got.has(k))return;const ok=isOk(g,k);g.sel.classList.remove("ok","bad");g.sel.classList.add(ok?"ok":"bad");if(ok){got.add(k);n+=round===1?BASE:RETRY;g.sel.disabled=true;}});
+        if(n)gain(n);const wrong=sels.length-got.size;
+        if(wrong&&round===1){lose();round=2;hud();msg.className="feedback bad";msg.textContent="Der Boss hat noch "+wrong+" Lebenspunkte! Verbessere die roten Lücken.";chk.textContent="Letzter Angriff!";return;}
+        if(wrong){lose();sels.forEach((g,k)=>{if(!got.has(k)){g.sol.hidden=false;g.sol.textContent="→ "+g.ans;}});}
+        sels.forEach(g=>g.sel.disabled=true);chk.remove();hud();
+        msg.className="feedback good";msg.innerHTML=wrong?'Boss besiegt – knapp!<span class="why">Die grünen Wörter hinter den roten Lücken sind die Lösung. Übertrage den Merkkasten richtig auf dein Arbeitsblatt.</span>':'Boss besiegt – fehlerfrei!<span class="why">Übertrage den Merkkasten jetzt auf dein Arbeitsblatt.</span>';
+        nextBtn(box);};
+    }
+    stage.appendChild(box);
+  }
+  function win(){
+    delete S.runs[L.id]; S.view=null;
+    stage.innerHTML="";const stars=run.hearts>=4?3:run.hearts>=2?2:1;const prev=S.done[L.id];
+    if(!prev||run.points>prev.points)S.done[L.id]={points:run.points,stars:Math.max(stars,prev?prev.stars:0)};
+    else if(stars>prev.stars)S.done[L.id].stars=stars;
+    save();bump();beep("win");
+    const box=el("div","box stack win");
+    box.innerHTML='<span class="label">WELT '+L.nr+' GESCHAFFT</span><div class="bigstars">'+[0,1,2].map(k=>STAR(k<stars)).join("")+'</div><div class="score-big">'+run.points+'</div><p>Münzen in dieser Welt'+(prev&&run.points<=prev.points?'<br><span class="foot">Dein Rekord ('+prev.points+') bleibt gespeichert.</span>':'')+'</p>'+(L.solution&&L.id!=="vermutung"?'<div class="tip" style="text-align:left">'+L.solution+'</div>':'');
+    const bs=el("div","btns");bs.style.justifyContent="center";
+    if(i+1<LEVELS.length){const n=el("button","btn","Nächste Welt ▶");n.type="button";n.onclick=()=>play(i+1);bs.appendChild(n);}
+    else{const f=el("button","btn red","Highscore ▶");f.type="button";f.onclick=finale;bs.appendChild(f);}
+    const a=el("button","btn ghost","Nochmal");a.type="button";a.onclick=()=>play(i,true);const k=el("button","btn ghost","Karte");k.type="button";k.onclick=home;bs.append(a,k);
+    box.appendChild(bs);stage.appendChild(box);hud();bar.firstChild.style.width="100%";
+  }
+  show(run.q[0]);
+}
+function readGate(i){
+  const L=LEVELS[i];const w=el("div","stack");
+  const back=el("button","btn ghost","‹ Karte");back.type="button";back.onclick=home;back.style.alignSelf="flex-start";w.appendChild(back);
+  w.appendChild(el("div","stack",'<span class="label">WELT '+L.nr+' · LADE-STATION</span><h2>'+esc(L.title)+'</h2>')).style.gap="6px";
+  const box=el("div","box stack");
+  box.appendChild(el("p","prompt","Lade deine Energie auf: Lies jetzt den Fachtext."));
+  box.appendChild(el("div","tip",L.sheet));
+  const a=el("label","check",'<input type="checkbox" id="r1"><span>Ich habe den Text zweimal gelesen.</span>');
+  const b=el("label","check",'<input type="checkbox" id="r2"><span>Ich habe wichtige Punkte unterstrichen und unbekannte Wörter nachgeschaut.</span>');
+  const go=el("button","btn","Energie voll ▶");go.type="button";go.disabled=true;
+  const u=()=>{go.disabled=!(a.querySelector("input").checked&&b.querySelector("input").checked);};
+  a.querySelector("input").onchange=u;b.querySelector("input").onchange=u;
+  go.onclick=()=>{S.done[L.id]={points:0,stars:3};save();beep("win");play(i+1);};
+  box.append(a,b,go);w.appendChild(box);app.appendChild(w);
+}
+function finale(){
+  S.view={w:"finale"}; save();
+  window.scrollTo(0,0);app.innerHTML="";bump();
+  const rows=LEVELS.filter(L=>!L.read).map(L=>{const d=S.done[L.id]||{points:0,stars:0};return '<tr><td>'+esc(L.title)+'</td><td>'+smallStars(d.stars)+'</td><td class="n">'+d.points+'</td></tr>';}).join("");
+  const sum=LEVELS.reduce((a,L)=>a+((S.done[L.id]||{}).stars||0)*(L.read?0:1),0);
+  const now=new Date();const ts=now.toLocaleDateString("de-DE")+", "+now.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+  const w=el("div","stack");
+  w.appendChild(el("div","box stack win",'<span class="label">HIGHSCORE</span><h1>Quest geschafft!</h1><div class="score-big">'+total()+'</div><p>Münzen · '+sum+' von '+3*LEVELS.filter(L=>!L.read).length+' Sternen</p><p class="px" style="font-size:.7rem;color:var(--lime)">'+esc(rank())+'</p><div style="overflow-x:auto;max-width:100%"><table class="hs">'+rows+'</table></div><p class="foot">Stand: '+esc(ts)+'</p>'));
+  w.appendChild(el("div","tip","<b>Letzter Schritt:</b> Mache einen Screenshot von dieser Übersicht und sende ihn an Herrn Heuermann (Teams). Hast du alles auf deinem Arbeitsblatt verbessert?"));
+  const b=el("button","btn ghost","‹ Zur Karte");b.type="button";b.onclick=home;w.appendChild(b);
+  app.appendChild(w);beep("win");
+}
+(function start(){const v=S.view;
+  if(v&&v.w==="level"&&LEVELS[v.i]&&(v.i===0||S.done[LEVELS[v.i-1].id])) play(v.i);
+  else if(v&&v.w==="finale"&&LEVELS.every(L=>S.done[L.id])) finale();
+  else home();})();
+})();
+</script>
+
+</body></html>

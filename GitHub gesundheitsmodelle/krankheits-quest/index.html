@@ -1,0 +1,512 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta charset="utf-8">
+<title>Krankheits-Quest</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
+<style>
+/* Layout: Spielkonsole im Dunkeln – oben die Anzeige (Herzen, Kombo, Münzen), darunter Weltkarte bzw. eine Frage-Karte nach der anderen */
+:root{
+  --night:#0f1330; --panel:#1b2150; --panel2:#262d6b; --edge:#3a4390; --txt:#eef0ff; --dim:#a9afe0;
+  --cyan:#41e3ff; --heart:#ff4f6d; --coin:#ffd23f; --lime:#7dff8a; --violet:#b48cff;
+  --f-pixel:"Press Start 2P","Courier New",monospace;
+  --f-body:"Atkinson Hyperlegible","Segoe UI",system-ui,sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{min-height:100%}
+body{background:var(--night);color:var(--txt);font-family:var(--f-body);font-size:17px;line-height:1.5;
+  background-image:radial-gradient(circle at 20% 10%,rgba(65,227,255,.10),transparent 40%),radial-gradient(circle at 85% 80%,rgba(180,140,255,.12),transparent 45%),
+  linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);
+  background-size:auto,auto,24px 24px,24px 24px;background-attachment:fixed}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--panel)}
+.hud{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--panel);border-bottom:4px solid var(--edge)}
+.hud .in{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:10px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.logo{font-family:var(--f-pixel);font-size:.72rem;color:var(--cyan);flex:1;min-width:0;letter-spacing:.04em;text-shadow:0 0 8px rgba(65,227,255,.6)}
+.coins{font-family:var(--f-pixel);font-size:.72rem;color:var(--coin);display:flex;align-items:center;gap:6px;font-variant-numeric:tabular-nums}
+.coin{width:14px;height:14px;border-radius:50%;background:var(--coin);box-shadow:inset -3px -3px 0 #c99a10}
+.iconbtn{font:inherit;background:var(--panel2);color:var(--txt);border:2px solid var(--edge);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:.85rem;min-height:36px}
+.wrap{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
+.stack{display:flex;flex-direction:column;gap:16px}
+.px{font-family:var(--f-pixel);line-height:1.5}
+h1{font-family:var(--f-pixel);font-size:clamp(1.05rem,4.6vw,1.6rem);line-height:1.5;margin:0;color:var(--txt);text-shadow:3px 3px 0 var(--heart);text-wrap:balance}
+h2{font-family:var(--f-pixel);font-size:clamp(.85rem,3.6vw,1.05rem);line-height:1.6;margin:0;text-wrap:balance}
+p{margin:0}
+.lead{color:var(--dim);max-width:62ch}
+.box{background:var(--panel);border:4px solid var(--edge);border-radius:4px;padding:16px;box-shadow:6px 6px 0 rgba(0,0,0,.35)}
+.tip{background:rgba(255,210,63,.1);border:2px dashed var(--coin);border-radius:4px;padding:12px 14px;font-size:.95rem}
+.tip b{color:var(--coin)}
+/* Weltkarte */
+.map{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.world{position:relative;font:inherit;color:var(--txt);text-align:left;background:var(--panel);border:4px solid var(--edge);border-radius:4px;padding:14px;cursor:pointer;display:flex;flex-direction:column;gap:6px;min-height:132px;box-shadow:6px 6px 0 rgba(0,0,0,.35);transition:transform .12s}
+.world:not(:disabled):hover{transform:translate(-2px,-2px);border-color:var(--cyan)}
+.world:disabled{cursor:not-allowed;filter:grayscale(.8);opacity:.5}
+.world .nr{font-family:var(--f-pixel);font-size:.62rem;color:var(--cyan)}
+.world .nm{font-weight:700;font-size:1.05rem;line-height:1.25}
+.world .sb{font-size:.82rem;color:var(--dim)}
+.world .st{margin-top:auto;display:flex;gap:4px;align-items:center;font-size:.8rem;color:var(--dim)}
+.world.done{border-color:var(--lime)}
+.world.next{border-color:var(--cyan);animation:glow 1.6s ease-in-out infinite}
+@keyframes glow{50%{box-shadow:0 0 18px rgba(65,227,255,.55),6px 6px 0 rgba(0,0,0,.35)}}
+.world.boss .nr{color:var(--heart)}
+.heart{width:22px;height:20px;display:inline-block;flex:none}
+.hearts{display:flex;gap:4px}
+.xp{height:14px;background:var(--night);border:3px solid var(--edge);border-radius:2px;overflow:hidden}
+.xp span{display:block;height:100%;background:repeating-linear-gradient(90deg,var(--lime) 0 10px,#5ad86a 10px 20px);transition:width .4s}
+.rankline{display:flex;justify-content:space-between;gap:8px;font-size:.85rem;color:var(--dim);flex-wrap:wrap}
+.rankline b{color:var(--coin)}
+/* Spielfeld */
+.topline{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.combo{font-family:var(--f-pixel);font-size:.62rem;color:var(--violet);padding:6px 8px;border:2px solid var(--violet);border-radius:4px}
+.combo.hot{color:var(--night);background:var(--coin);border-color:var(--coin);animation:shake .35s}
+@keyframes shake{25%{transform:rotate(-4deg)}75%{transform:rotate(4deg)}}
+.label{font-family:var(--f-pixel);font-size:.6rem;color:var(--cyan);letter-spacing:.05em}
+.prompt{font-size:1.25rem;font-weight:700;line-height:1.35}
+.opts{display:grid;gap:10px}
+.opts.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.opt{font:inherit;font-weight:700;color:var(--txt);background:var(--panel2);border:3px solid var(--edge);border-radius:4px;padding:12px 14px;cursor:pointer;text-align:left;min-height:54px;box-shadow:4px 4px 0 rgba(0,0,0,.4);transition:transform .08s}
+.opt:hover:not(:disabled){border-color:var(--cyan)}
+.opt:active:not(:disabled){transform:translate(3px,3px);box-shadow:1px 1px 0 rgba(0,0,0,.4)}
+.opt:disabled{cursor:default}
+.opt.right{background:#1f5a3a;border-color:var(--lime)}
+.opt.wrong{background:#5a1f2e;border-color:var(--heart)}
+.opt.picked{border-color:var(--cyan);background:#20407a}
+.feedback{border-radius:4px;padding:12px 14px;font-weight:700}
+.feedback.good{background:rgba(125,255,138,.14);border:2px solid var(--lime);color:var(--lime)}
+.feedback.bad{background:rgba(255,79,109,.14);border:2px solid var(--heart);color:#ffb3c0}
+.feedback .why{display:block;font-weight:400;color:var(--txt);margin-top:4px}
+.btn{font-family:var(--f-pixel);font-size:.72rem;line-height:1.4;border:0;border-radius:4px;padding:14px 18px;cursor:pointer;min-height:50px;background:var(--cyan);color:var(--night);box-shadow:4px 4px 0 #1a7f93}
+.btn:active{transform:translate(3px,3px);box-shadow:1px 1px 0 #1a7f93}
+.btn.red{background:var(--heart);box-shadow:4px 4px 0 #a32740;color:#fff}
+.btn.ghost{background:transparent;color:var(--txt);border:3px solid var(--edge);box-shadow:none}
+.btn:disabled{opacity:.45;cursor:not-allowed}
+.btns{display:flex;flex-wrap:wrap;gap:12px}
+.float{position:fixed;left:50%;top:38%;transform:translateX(-50%);font-family:var(--f-pixel);font-size:1.4rem;color:var(--coin);text-shadow:3px 3px 0 #000;pointer-events:none;z-index:20;animation:up 1s ease-out forwards}
+.float.minus{color:var(--heart)}
+@keyframes up{to{transform:translate(-50%,-80px);opacity:0}}
+.bar{height:10px;background:var(--night);border:2px solid var(--edge);border-radius:2px;overflow:hidden}
+.bar span{display:block;height:100%;background:var(--cyan);transition:width .3s}
+textarea,select{font:inherit;color:var(--txt);background:var(--night);border:3px solid var(--edge);border-radius:4px;padding:8px 10px;width:100%}
+textarea{min-height:100px}
+.check{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.check input{width:24px;height:24px;margin-top:2px;accent-color:var(--lime);flex:none}
+.slots{display:flex;flex-direction:column;gap:8px;counter-reset:s}
+.slot{border:3px dashed var(--edge);border-radius:4px;padding:10px 12px;min-height:50px;display:flex;align-items:center;gap:12px}
+.slot::before{counter-increment:s;content:counter(s);font-family:var(--f-pixel);font-size:.75rem;color:var(--coin)}
+.slot.filled{border-style:solid;border-color:var(--cyan)}
+.slot.ok{border-color:var(--lime)}.slot.no{border-color:var(--heart)}
+.merke{line-height:2.1}
+.merke ul{margin:10px 0 0;padding-left:18px;display:flex;flex-direction:column;gap:10px}
+.gap{display:inline-block;width:auto;min-width:9.5em;max-width:100%;padding:3px 6px;font-size:.95rem}
+.gap.ok{border-color:var(--lime);background:#173b26}.gap.bad{border-color:var(--heart);background:#3e1722}
+.gapsol{font-size:.85rem;color:var(--lime);font-weight:700;margin-left:4px}
+.bank{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.bank span{background:var(--panel2);border:2px solid var(--edge);border-radius:4px;padding:2px 8px;font-size:.88rem}
+.bank span.used{text-decoration:line-through;opacity:.4}
+.win{text-align:center;align-items:center}
+.bigstars{display:flex;gap:10px;justify-content:center}
+.bigstars svg{width:56px;height:56px;animation:pop .5s backwards}
+.bigstars svg:nth-child(2){animation-delay:.25s}.bigstars svg:nth-child(3){animation-delay:.5s}
+@keyframes pop{0%{transform:scale(0) rotate(-40deg)}70%{transform:scale(1.25)}100%{transform:scale(1)}}
+.score-big{font-family:var(--f-pixel);font-size:2rem;color:var(--coin);text-shadow:4px 4px 0 #000;font-variant-numeric:tabular-nums}
+table.hs{border-collapse:collapse;margin:0 auto;font-size:.95rem}
+table.hs td{padding:6px 10px;border-bottom:2px solid var(--edge);text-align:left}
+table.hs td.n{text-align:right;font-variant-numeric:tabular-nums;color:var(--coin)}
+.foot{color:var(--dim);font-size:.8rem;text-align:center}
+.kihinweis{max-width:760px;margin:0 auto;padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 24px;color:var(--dim);font-size:.75rem;text-align:center}
+:focus-visible{outline:3px solid var(--coin);outline-offset:2px}
+@media (max-width:520px){.map{grid-template-columns:1fr}.opts.two{grid-template-columns:1fr}.world{min-height:0}}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<header class="hud"><div class="in">
+  <div class="logo">KRANKHEITS-QUEST</div>
+  <div class="coins" title="Punkte"><span class="coin" aria-hidden="true"></span><span id="coins">0</span></div>
+  <button class="iconbtn" id="snd" type="button" aria-pressed="false">Ton: aus</button>
+</div></header>
+<main class="wrap" id="app"></main>
+<footer class="kihinweis">Dieses Material wurde mit Unterstützung von KI (Claude) erstellt und von HEU geprüft und angepasst.</footer>
+
+<script>
+(function(){
+const KEY="krankheitsquest-v1";
+const BASE=10, RETRY=5;
+const LEVELS=[
+{ id:"einstieg", nr:1, title:"Toms Arztbesuch", sub:"Aufgabe 1 · Einstieg",
+  sheet:"Bearbeite zuerst Aufgabe 1 auf Seite 1. Lies den Fachtext noch <b>nicht</b>! Notiere in Stichworten, was mit Tom passiert. Danach prüfst du hier.",
+  tasks:[
+    {type:"order", stem:"Tippe die Schritte in der richtigen Reihenfolge an:",
+      items:["Tom hat hohes Fieber und Bauchschmerzen.","Die Ärztin fragt nach und untersucht Tom.","Sie findet den Grund: eine Blinddarmentzündung.","Tom wird behandelt, z. B. operiert.","Tom wird wieder gesund."],
+      explain:"Beschwerden → Untersuchung → Ursache gefunden → Behandlung → Ende der Krankheit. Genau diesen Ablauf beschreibt das biomedizinische Krankheitsmodell."},
+    {type:"self", stem:"Vergleiche mit deinen Notizen. Das habe ich schon notiert:", items:[
+      "die Beschwerden (Fieber, Bauchschmerzen)",
+      "die Untersuchung in der Arztpraxis",
+      "den Grund für die Beschwerden",
+      "die Behandlung",
+      "wie die Krankheit endet"
+    ]}
+  ]},
+{ id:"lesen", nr:2, title:"Lese-Station", sub:"Aufgabe 2 · Fachtext lesen", read:true,
+  sheet:"Lies jetzt den Fachtext auf <b>Seite 1 und 2</b> <b>zweimal</b>. Markiere beim zweiten Lesen alle Fachbegriffe. Unbekannte Wörter stehen in den Worterklärungen auf Seite 3. (ca. 20 Min.)"},
+{ id:"fachwort", nr:3, title:"Fachwort-Arena", sub:"Worterklärungen · Fachbegriffe sichern",
+  sheet:"Nutze die Worterklärungen auf Seite 3. Schreibe jedes Fachwort, das du noch nicht sicher kanntest, mit Erklärung in dein Heft.",
+  tasks:[{type:"single", items:[
+    [["ein Krankheitszeichen","eine Ursache, die dem Körper schadet","eine Behandlung"],1,"Noxe = schädliche Ursache, z. B. Erreger, Gift oder Verletzung.","Was ist eine „Noxe“?"],
+    [["die Lehre von den Krankheitsursachen","die Behandlung einer Krankheit","die Vorbeugung"],0,"Ätiologie = Lehre von den Krankheitsursachen.","Was bedeutet „Ätiologie“?"],
+    [["das Ende einer Krankheit","Entstehung und Entwicklung einer Krankheit","eine Untersuchung"],1,"Pathogenese = Entstehung und Entwicklung einer Krankheit.","Was bedeutet „Pathogenese“?"],
+    [["ein Krankheitszeichen, z. B. Fieber","ein Medikament","ein Krankheitserreger"],0,"Symptom = Krankheitszeichen, z. B. Fieber oder Schmerzen.","Was ist ein „Symptom“?"],
+    [["Behandlung einer Krankheit","Untersuchungen, mit denen eine Krankheit erkannt wird","eine Operation"],1,"Diagnostik = Untersuchungen, mit denen eine Krankheit erkannt wird.","Was bedeutet „Diagnostik“?"],
+    [["Behandlung einer Krankheit","Untersuchung","Krankheitszeichen"],0,"Therapie = Behandlung einer Krankheit.","Was bedeutet „Therapie“?"],
+    [["Zusammenhang von Ursache und Wirkung","Vorbeugung","lang andauernde Krankheit"],0,"Kausalität = Zusammenhang von Ursache und Wirkung.","Was bedeutet „Kausalität“?"],
+    [["viele Ursachen","eine einzige Ursache","gar keine Ursache"],1,"monokausal = eine einzige Ursache. Viele Ursachen = multifaktoriell.","Was bedeutet „monokausal“?"],
+    [["kurz und heftig","lang andauernd, heilt nicht aus","ansteckend"],1,"chronisch = lang andauernd, heilt nicht aus.","Was bedeutet „chronisch“?"],
+    [["Heilung, Behandlung einer Krankheit","Vorbeugung von Krankheiten","Entstehung einer Krankheit"],1,"Prävention = Vorbeugung. Kuration = Heilung, Behandlung.","Was bedeutet „Prävention“?"],
+    [["blickt auf Stärken und Kraftquellen","blickt nur auf das, was fehlt oder kaputt ist","blickt auf die Zukunft"],1,"defizitorientiert = blickt nur auf das, was fehlt oder kaputt ist.","Was bedeutet „defizitorientiert“?"]
+  ]}]},
+{ id:"kette", nr:4, title:"Krankheits-Kette", sub:"Aufgabe 3 · Schaubild (Z. 12–21)",
+  sheet:"Ergänze zuerst das Schaubild zu Aufgabe 3 auf Seite 4 mit dem Wortspeicher. Prüfe dann hier und verbessere dein Schaubild.",
+  tasks:[
+    {type:"order", stem:"Tippe die Kette in der richtigen Reihenfolge an (Z. 12–21):",
+      items:["Noxe (Ursache)","Veränderung körperlicher Vorgänge (Ätiologie)","Entwicklung der Krankheit (Pathogenese)","Symptome","Diagnostik","Behandlung (Therapie)","Krankheitsverlauf"],
+      explain:"Noxe → Ätiologie → Pathogenese → Symptome → Diagnostik → Therapie → Krankheitsverlauf."},
+    {type:"binary", stem:"Ist das ein möglicher Ausgang des Krankheitsverlaufs (unterste Kästen)?", opts:["ist ein Ausgang","ist kein Ausgang"], items:[
+      ["Heilung",0,"Die Krankheit ist vollständig geheilt."],
+      ["Wiederherstellung der Funktion des Organs",0,"Das Organ arbeitet wieder normal."],
+      ["Funktionsminderung oder -verlust ohne Verschlimmerung",0,"Das Organ arbeitet nur noch eingeschränkt oder gar nicht mehr, ohne dass die Krankheit schlimmer wird."],
+      ["Tod",0,"Im schlimmsten Fall stirbt der Mensch."],
+      ["Diagnostik",1,"Die Diagnostik kommt vorher in der Kette – sie ist kein Ausgang."],
+      ["Noxe",1,"Die Noxe steht ganz am Anfang der Kette."]
+    ]}
+  ]},
+{ id:"tom", nr:5, title:"Fall Tom", sub:"Aufgabe 4 · Modell anwenden",
+  sheet:"Bearbeitet Aufgabe 4a und 4b zu zweit auf Seite 4. Prüft dann hier und verbessert eure Antworten.",
+  tasks:[{type:"single", items:[
+    [["das Fieber","Bakterien, die den Blinddarm entzünden","die Ärztin"],1,"Die Noxe ist die Ursache, z. B. Bakterien, die den Blinddarm entzünden.","4a · Was könnte bei Tom die Noxe sein?"],
+    [["hohes Fieber und Bauchschmerzen","die Blinddarmentzündung","die Operation"],0,"Symptome sind die Krankheitszeichen, die man sehen oder spüren kann.","4a · Welche Symptome hat Tom?"],
+    [["Befragen, Abtasten des Bauches, Blutuntersuchung, Ultraschall","Operation und Antibiotika","Fiebersaft"],0,"Mit der Diagnostik wird die Krankheit erkannt.","4a · Was gehört bei Tom zur Diagnostik?"],
+    [["Ultraschall","Operation (Blinddarm entfernen), ggf. Antibiotika","Fieber messen"],1,"Die Therapie richtet sich gegen die Ursache.","4a · Was ist bei Tom die Therapie?"],
+    [["Heilung","Tod","Die Krankheit wird chronisch."],0,"Nach der Operation heilt die Krankheit meist vollständig aus.","4a · Wie verläuft Toms Krankheit nach der Operation meistens?"],
+    [["Fiebersaft ist für Kinder verboten.","Er senkt nur das Fieber (Symptom). Die Entzündung (Ursache) bleibt und kann sich verschlimmern.","Fieber ist immer harmlos."],1,"Fünfte Grundannahme: Ohne Behandlung der Ursache wird die Krankheit schlimmer (Z. 35–44).","4b · Warum hilft ein Fiebersaft allein Tom nicht?"]
+  ]}]},
+{ id:"maschine", nr:6, title:"Mensch als Maschine", sub:"Aufgabe 5 · (Z. 24–27, 38–41)",
+  sheet:"Schreibe zuerst Aufgabe 5 auf Seite 4. Prüfe dann hier, ob du die wichtigsten Punkte erklärt hast.",
+  tasks:[{type:"binary", opts:["richtig","falsch"], items:[
+    ["Der Körper wird mit einer Maschine verglichen: Ist ein Teil kaputt, wird es repariert.",0,"Z. 24–27: Die kranke Stelle wird wie ein kaputtes Teil repariert."],
+    ["Nach der „Reparatur“ gilt der ganze Mensch wieder als gesund.",0,"Genau so sieht es das Modell."],
+    ["Seele, Gefühle und Verhalten werden genau betrachtet.",1,"Körper und Seele werden getrennt betrachtet. Seelische und soziale Einflüsse spielen keine Rolle."],
+    ["Der kranke Mensch ist aktiv und entscheidet selbst über seine Behandlung.",1,"Im Modell ist der kranke Mensch passiv und befolgt die Anweisungen des Fachpersonals."],
+    ["Diagnose und Therapie liegen in der Hand von Fachleuten.",0,"Ärztinnen, Ärzte und Fachpersonal „reparieren“ den Körper."],
+    ["Körper und Seele werden getrennt betrachtet.",0,"Das biomedizinische Modell schaut nur auf den Körper."]
+  ]}],
+  solution:"<b>So kannst du Aufgabe 5 beantworten:</b> Der Körper wird wie eine Maschine aus einzelnen Teilen gesehen. Ist ein Teil defekt (z. B. ein Organ), wird es von Fachleuten repariert, danach gilt der ganze Mensch wieder als gesund. Seele, Gefühle, Verhalten und soziales Umfeld werden nicht beachtet. Der Mensch selbst ist passiv."},
+{ id:"annahmen", nr:7, title:"Grundannahmen-Check", sub:"Vorbereitung Aufgabe 6 · (Z. 22–41)",
+  sheet:"Gehört die Aussage zu den Grundannahmen des biomedizinischen Krankheitsmodells? Die Treffer brauchst du gleich für die Tabelle.",
+  tasks:[{type:"binary", opts:["Grundannahme","passt nicht"], items:[
+    ["Jede Krankheit hat eine klar bestimmbare Ursache (Noxe).",0,"Zweite Grundannahme: klare Ursache."],
+    ["Es gibt einen klaren Zusammenhang zwischen Ursache und Wirkung.",0,"Dritte Grundannahme: klarer Zusammenhang."],
+    ["Jede Krankheit hat typische Symptome und einen vorhersagbaren Verlauf.",0,"Vierte Grundannahme: klare Zeichen und klarer Verlauf."],
+    ["Wird nur das Symptom behandelt und nicht die Ursache, kann die Krankheit schlimmer werden.",0,"Fünfte Grundannahme: Ursache behandeln."],
+    ["Der kranke Mensch wird auf körperliche Vorgänge reduziert.",0,"Erste Grundannahme: „Mensch als Maschine“ (Z. 24–27)."],
+    ["Diagnose und Therapie liegen allein beim Fachpersonal, der kranke Mensch ist passiv.",0,"Sechste Grundannahme (Z. 38–41)."],
+    ["Gefühle und das soziale Umfeld sind die wichtigsten Ursachen von Krankheit.",1,"Seelische und soziale Einflüsse spielen im Modell gerade keine Rolle."],
+    ["Viele Ursachen wirken zusammen und machen den Menschen krank.",1,"Das wäre multifaktoriell. Das Modell geht von einer Ursache aus (monokausal) – genau das ist ein Kritikpunkt."],
+    ["Gesundheit entsteht vor allem durch Kraftquellen wie Freunde und Sport.",1,"Diese Frage stellt erst ein späteres Modell (salutogenetisch). Das biomedizinische Modell fragt: Was macht krank?"]
+  ]}]},
+{ id:"merke", nr:8, title:"Tabellen-Boss", sub:"Aufgabe 6 · Übersichtstabelle", tag:"BOSS",
+  sheet:"Fülle zuerst die Tabelle zu Aufgabe 6 auf Seite 5 aus. Dann kämpfst du hier gegen den Boss. Jedes Wort aus dem Wortspeicher passt genau einmal. Verbessere danach deine Tabelle und übertrage sie in deine Übersicht „Modelle von Gesundheit und Krankheit“.",
+  tasks:[{type:"gaps"}]},
+{ id:"bewertung", nr:9, title:"Pro und Contra", sub:"Aufgabe 7 · Vorteile und Nachteile (Z. 46–60)",
+  sheet:"Fülle zuerst zu zweit die Tabelle zu Aufgabe 7 auf Seite 6 aus. Prüft dann hier: Vorteil oder Nachteil?",
+  tasks:[{type:"binary", opts:["Vorteil","Nachteil"], items:[
+    ["Viele Infektionskrankheiten können heute gezielt behandelt werden.",0,"Z. 46–51: große medizinische Fortschritte."],
+    ["Ursache und Wirkung sind klar. So können Diagnostik und Therapie gezielt geplant werden.",0,"Das erleichtert gezieltes Handeln."],
+    ["Der Mensch ist Krankheiten nicht hilflos ausgeliefert.",0,"Fachleute können die Ursache finden und behandeln."],
+    ["Das Modell ist einfach und verständlich und wird deshalb bis heute genutzt.",0,"Z. 60."],
+    ["Chronische Krankheiten mit vielen Ursachen, z. B. Diabetes oder Rückenschmerzen, lassen sich kaum erklären.",1,"Z. 52–55: Viele Krankheiten sind multifaktoriell."],
+    ["Seele, Verhalten und soziales Umfeld werden nicht beachtet.",1,"Der Mensch wird auf den Körper reduziert."],
+    ["Der kranke Mensch ist passiv und wird nicht als selbstständig Handelnder gesehen.",1,"Z. 55–56."],
+    ["Es wird erst eingegriffen, wenn die Krankheit schon zu erkennen ist. Vorbeugung kommt zu kurz.",1,"Z. 57–58: Prävention und Gesundheitsförderung fehlen."],
+    ["Das Modell fragt nur: „Was macht den Menschen krank?“",1,"Es ist pathogenetisch und defizitorientiert."]
+  ]}]},
+{ id:"passt", nr:10, title:"Passt das Modell?", sub:"Aufgabe 8 · Beurteilen",
+  sheet:"Bearbeitet zuerst Aufgabe 8 auf Seite 6 zu zweit. Prüft dann hier: Lässt sich die Krankheit gut mit dem Modell erklären?",
+  tasks:[{type:"binary", opts:["passt gut","passt kaum"], items:[
+    ["Tuberkulose",0,"Klare Ursache (Bakterien), gezielte Therapie mit Antibiotika."],
+    ["Knochenbruch",0,"Klare Ursache (Unfall), klare Therapie (Gips oder Operation)."],
+    ["Blinddarmentzündung",0,"Klare Ursache, Operation heilt."],
+    ["Depression",1,"Seelische Erkrankung, selten eine körperliche Ursache, kaum messbar."],
+    ["Diabetes Typ 2",1,"Chronisch und multifaktoriell: Ernährung, Bewegung, Vererbung, Gewicht."],
+    ["Rückenschmerzen",1,"Meist viele Ursachen, z. B. Haltung, Stress, Bewegungsmangel."],
+    ["Lebensmittelvergiftung durch Salmonellen",0,"Klare Ursache (Bakterien), klarer Verlauf."],
+    ["Bluthochdruck",1,"Viele Ursachen wie Stress, Ernährung, Gewicht und Vererbung."]
+  ]}],
+  solution:"<b>Merkhilfe:</b> Das Modell passt gut zu <b>akuten</b> Krankheiten mit <b>einer klaren Ursache</b>. Es passt kaum zu <b>chronischen</b> und <b>seelischen</b> Krankheiten mit <b>vielen Ursachen</b>."},
+{ id:"sprinter", nr:11, title:"Sprinter: Praxis-Check", sub:"Sprinteraufgabe · eigene Beispiele", tag:"BONUS",
+  sheet:"Denke an dein Praktikum oder dein Umfeld. Nenne auf Seite 6 eine Krankheit, die gut zum Modell passt, und eine, die nicht passt. Begründe jeweils.",
+  tasks:[
+    {type:"note", label:"Deine zwei Beispiele mit Begründung (Pflichtfeld – keine Namen von Personen, bleibt nur auf deinem Gerät):", ph:"Gut passt …, weil … Nicht gut passt …, weil …"},
+    {type:"self", stem:"Checkliste: Das habe ich erfüllt:", items:[
+      "Ich habe eine Krankheit genannt, die gut passt, und eine klare Ursache angegeben.",
+      "Ich habe eine Krankheit genannt, die nicht gut passt, und erklärt, warum (z. B. viele Ursachen, chronisch, seelisch).",
+      "Ich habe keine Namen von Personen genannt."
+    ]}
+  ]},
+{ id:"transfer", nr:12, title:"Erklär es!", sub:"Transfer · Schreibaufgabe im Heft", tag:"FINALE",
+  sheet:"Diese Aufgabe bearbeitest du <b>schriftlich in deinem Heft</b> (ca. 15 Min.). Prüfe danach selbst mit der Checkliste.",
+  tasks:[{type:"self", intro:"<b>Transferaufgabe</b><ol style=\"margin:6px 0 0;padding-left:20px\"><li>Stell dir vor, eine Mitschülerin oder ein Mitschüler hat heute gefehlt.</li><li>Erkläre ihr oder ihm in 6 bis 8 Sätzen das biomedizinische Krankheitsmodell.</li><li>Nutze dafür ein eigenes Beispiel (nicht Tom) und die Fachbegriffe aus dem Text.</li></ol>",
+    stem:"Checkliste: Das habe ich in meinem Heft erfüllt:", items:[
+      "Ich habe die Grundidee erklärt: Jede Krankheit hat eine bestimmte Ursache.",
+      "Ich habe den Ablauf von der Noxe bis zum Krankheitsverlauf an meinem Beispiel gezeigt.",
+      "Ich habe erklärt, was „Mensch als Maschine“ bedeutet.",
+      "Ich habe mindestens einen Vorteil genannt.",
+      "Ich habe mindestens einen Nachteil genannt.",
+      "Ich habe mindestens vier Fachbegriffe richtig verwendet (z. B. Noxe, Symptom, Diagnostik, Therapie)."
+  ]}],
+  solution:"<b>Beispiel (Knochenbruch):</b> Das biomedizinische Krankheitsmodell geht davon aus, dass jede Krankheit eine bestimmte Ursache hat. Diese Ursache heißt Noxe. Bei einem Knochenbruch ist die Noxe ein Sturz. Der Knochen bricht, das ist die Veränderung im Körper. Symptome sind Schmerzen und eine Schwellung. Mit einem Röntgenbild wird der Bruch erkannt (Diagnostik). Die Therapie ist ein Gips. Meist heilt der Knochen wieder. Das Modell sieht den Menschen wie eine Maschine, bei der ein kaputtes Teil repariert wird. Ein Vorteil ist, dass man gezielt behandeln kann. Ein Nachteil ist, dass Seele und Umfeld nicht beachtet werden."}
+];
+/* Lückentext Übersichtstabelle: [Text davor, Lösung, Text, Lösung, …] */
+const GAPS_TITLE="Übersicht: Biomedizinisches Krankheitsmodell";
+const GAPS=[
+ ["Grundannahme: Der kranke Mensch wird auf ","körperliche"," Vorgänge reduziert („Mensch als ","Maschine","“)."],
+ ["Grundannahme: Jede Krankheit hat eine klar bestimmbare Ursache, die ","Noxe","."],
+ ["Grundannahme: Es gibt einen klaren Zusammenhang zwischen ","Ursache"," und Wirkung."],
+ ["Grundannahme: Jede Krankheit hat typische ","Symptome"," und einen vorhersagbaren Verlauf."],
+ ["Grundannahme: Werden nur die Symptome behandelt, kann sich die Krankheit ","verschlimmern","."],
+ ["Grundannahme: Diagnose und Therapie liegen beim ","Fachpersonal",", der kranke Mensch ist ","passiv","."],
+ ["Inhalte: Noxe → Veränderung körperlicher Vorgänge (","Ätiologie",") → Entwicklung der Krankheit (","Pathogenese",") → Symptome → ","Diagnostik"," → Behandlung (","Therapie",") → Krankheitsverlauf"],
+ ["Mögliche Ausgänge: Heilung · Wiederherstellung der Funktion des Organs · ","Funktionsminderung"," oder -verlust ohne Verschlimmerung · Tod"]
+];
+const BANK=["Ätiologie","Diagnostik","Fachpersonal","Funktionsminderung","körperliche","Maschine","Noxe","passiv","Pathogenese","Symptome","Therapie","Ursache","verschlimmern"];
+const RANKS_G=[[0,"Level 1 · Neuling"],[25,"Level 2 · Entdecker:in"],[50,"Level 3 · Kenner:in"],[75,"Level 4 · Profi"],[95,"Level 5 · Meister:in"]];
+
+/* Basis-Punkte (ohne Kombo) als Maßstab für die Ränge */
+function baseMax(L){ if(L.read) return 0; let m=0;(L.tasks||[]).forEach(t=>{
+  if(t.type==="binary"||t.type==="single") m+=t.items.length*BASE; else if(t.type==="order") m+=2*BASE;
+  else if(t.type==="self") m+=t.items.length*RETRY; else if(t.type==="gaps") m+=BANK.length*BASE;}); return m; }
+const BASETOTAL=LEVELS.reduce((a,L)=>a+baseMax(L),0);
+
+let S={done:{},note:"",sound:false,runs:{},view:null};
+try{const r=localStorage.getItem(KEY); if(r) S=Object.assign(S,JSON.parse(r));}catch(e){}
+S.runs=S.runs||{};
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(S));}catch(e){}};
+const total=()=>Object.values(S.done).reduce((a,d)=>a+(d.points||0),0);
+const pct=()=>Math.min(100,Math.round(total()/BASETOTAL*100));
+function rank(){let r=RANKS_G[0][1];RANKS_G.forEach(([t,n])=>{if(pct()>=t)r=n;});return r;}
+function nextRank(){const p=pct();const n=RANKS_G.find(([t])=>t>p);return n?n:null;}
+const app=document.getElementById("app");
+const esc=s=>String(s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const shuffle=a=>{a=a.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;};
+function el(t,c,h){const e=document.createElement(t);if(c)e.className=c;if(h!=null)e.innerHTML=h;return e;}
+function bump(){document.getElementById("coins").textContent=total();}
+
+/* Pixel-Grafiken */
+const HEART=(on)=>'<svg class="heart" viewBox="0 0 11 10" shape-rendering="crispEdges" aria-hidden="true"><path fill="'+(on?"var(--heart)":"#3a4390")+'" d="M1 1h3v1h1v1h1V2h1V1h3v1h1v3h-1v1H9v1H8v1H7v1H4V8H3V7H2V6H1V5H0V2h1z"/>'+(on?'<path fill="#ffc2cc" d="M2 2h1v1H2z"/>':'')+'</svg>';
+const STAR=(on)=>'<svg viewBox="0 0 11 11" shape-rendering="crispEdges" aria-hidden="true"><path fill="'+(on?"var(--coin)":"#3a4390")+'" d="M5 0h1v3h2v1h3v1H9v1H8v2h1v2H8V9H7V8H4v1H3v1H2V8h1V6H2V5H0V4h3V3h2z"/></svg>';
+const hearts=(n)=>'<span class="hearts" aria-label="'+n+' von 5 Herzen">'+[0,1,2,3,4].map(i=>HEART(i<n)).join("")+'</span>';
+const smallStars=(n)=>'<span style="display:flex;gap:2px" aria-label="'+n+' von 3 Sternen">'+[0,1,2].map(i=>'<span style="width:16px;height:16px;display:inline-block">'+STAR(i<n)+'</span>').join("")+'</span>';
+
+/* Töne (nur nach Tippen, standardmäßig aus) */
+let ac=null;
+function beep(kind){ if(!S.sound) return; try{ ac=ac||new (window.AudioContext||window.webkitAudioContext)();
+  const seq={ok:[[660,.07],[990,.12]],bad:[[220,.18]],win:[[523,.1],[659,.1],[784,.1],[1047,.25]],tap:[[440,.04]]}[kind]||[];
+  let t=ac.currentTime; seq.forEach(([f,d])=>{const o=ac.createOscillator(),g=ac.createGain();o.type="square";o.frequency.value=f;g.gain.setValueAtTime(.06,t);g.gain.exponentialRampToValueAtTime(.001,t+d);o.connect(g);g.connect(ac.destination);o.start(t);o.stop(t+d);t+=d;});}catch(e){} }
+const sndBtn=document.getElementById("snd");
+function sndLabel(){sndBtn.textContent="Ton: "+(S.sound?"an":"aus");sndBtn.setAttribute("aria-pressed",S.sound?"true":"false");}
+sndBtn.onclick=()=>{S.sound=!S.sound;save();sndLabel();beep("tap");}; sndLabel();
+function floatTxt(t,minus){const f=el("div","float"+(minus?" minus":""),esc(t));document.body.appendChild(f);setTimeout(()=>f.remove(),1000);}
+
+/* ---------- Weltkarte ---------- */
+function home(){
+  S.view=null; save();
+  window.scrollTo(0,0); app.innerHTML=""; bump();
+  const w=el("div","stack");
+  const nr=nextRank();
+  w.appendChild(el("div","stack",'<span class="label">GESUNDHEIT · HF4 · AS4.1</span><h1>Krankheits-Quest</h1><p class="lead">Zwölf Welten zum Arbeitsblatt „Das biomedizinische Krankheitsmodell“. Jede richtige Antwort bringt Münzen, mehrere richtige hintereinander geben eine Kombo. Pro Welt hast du fünf Herzen, jeder Fehler kostet eins. Mit 4–5 Herzen am Ende gibt es drei Sterne, mit 2–3 Herzen zwei Sterne.</p>'));
+  const xp=el("div","box stack"); xp.style.gap="8px";
+  xp.innerHTML='<div class="rankline"><span>Rang: <b>'+esc(rank())+'</b></span><span>'+(nr?'Nächster Rang bei '+nr[0]+' %':'Höchster Rang erreicht!')+'</span></div><div class="xp" role="progressbar" aria-valuenow="'+pct()+'" aria-valuemin="0" aria-valuemax="100"><span style="width:'+pct()+'%"></span></div>';
+  w.appendChild(xp);
+  w.appendChild(el("div","tip",'<b>Regel:</b> Erst auf dem Arbeitsblatt arbeiten, dann hier prüfen. Was falsch war, verbesserst du auf dem Papier.'));
+  const map=el("div","map");
+  const firstOpen=LEVELS.findIndex((L,i)=>!S.done[L.id]&&(i===0||S.done[LEVELS[i-1].id]));
+  LEVELS.forEach((L,i)=>{
+    const d=S.done[L.id], open=i===0||!!S.done[LEVELS[i-1].id];
+    const b=el("button","world"+(d?" done":"")+(i===firstOpen?" next":"")+(L.id==="merke"?" boss":""));
+    b.type="button"; b.disabled=!open;
+    const tag=(L.tag?L.tag+" · ":"")+"WELT "+L.nr;
+    b.innerHTML='<span class="nr">'+tag+'</span><span class="nm">'+esc(L.title)+'</span><span class="sb">'+esc(L.sub)+'</span><span class="st">'+(d?(L.read?"✔ erledigt":smallStars(d.stars)+'<span style="margin-left:6px;color:var(--coin)">'+d.points+' Münzen</span>'):open?"▶ Start":"🔒 gesperrt")+'</span>';
+    b.onclick=()=>{beep("tap");play(i);};
+    map.appendChild(b);
+  });
+  w.appendChild(map);
+  if(LEVELS.every(L=>S.done[L.id])){const f=el("button","btn red","Highscore ansehen");f.type="button";f.onclick=finale;w.appendChild(f);}
+  const foot=el("div","stack"); foot.style.gap="10px"; foot.style.alignItems="center";
+  foot.appendChild(el("p","foot","Kein Login, keine Namen: Dein Spielstand bleibt nur auf diesem Gerät."));
+  const rs=el("div","btns"); const rb=el("button","btn ghost","Neues Spiel");rb.type="button";
+  rb.onclick=()=>{rs.innerHTML="";rs.appendChild(el("span","foot","Spielstand wirklich löschen?"));const y=el("button","btn red","Ja");y.type="button";y.onclick=()=>{S={done:{},note:"",sound:S.sound,runs:{},view:null};save();home();};const n=el("button","btn ghost","Nein");n.type="button";n.onclick=home;rs.append(y,n);};
+  rs.appendChild(rb); foot.appendChild(rs); w.appendChild(foot);
+  app.appendChild(w);
+}
+
+function noteOk(v){v=(v||"").trim();const w=v.split(/\s+/).filter(x=>/[a-zäöüß]{2,}/i.test(x));return v.length>=30&&w.length>=6&&new Set(w.map(x=>x.toLowerCase())).size>=4;}
+function noteHint(v){v=(v||"").trim();const n=v.split(/\s+/).filter(x=>/[a-zäöüß]{2,}/i.test(x)).length;return noteOk(v)?"✓ Danke, deine Beispiele sind eingetragen.":"Pflichtfeld: Schreibe deine Beispiele in ganzen Sätzen (mindestens 6 Wörter). Bisher: "+n+" Wörter.";}
+/* ---------- Eine Welt spielen ---------- */
+function buildQueue(L){
+  const q=[];
+  L.tasks.forEach(t=>{
+    if(t.type==="note") q.push({kind:"note",t});
+    else if(t.type==="binary") shuffle(t.items).forEach(([s,a,e])=>q.push({kind:"choice",label:t.stem||"",prompt:s,opts:t.opts,correct:a,explain:e,two:true}));
+    else if(t.type==="single") t.items.forEach(([opts,a,e,st])=>{const idx=shuffle(opts.map((o,k)=>k));q.push({kind:"choice",label:"",prompt:st||t.stem,opts:idx.map(k=>opts[k]),correct:idx.indexOf(a),explain:e});});
+    else if(t.type==="order") q.push({kind:"order",t});
+    else if(t.type==="self") q.push({kind:"self",t});
+    else if(t.type==="gaps") q.push({kind:"gaps"});
+  });
+  return q;
+}
+function play(i,fresh){
+  const L=LEVELS[i]; window.scrollTo(0,0); app.innerHTML="";
+  if(L.read) return readGate(i);
+  if(fresh) delete S.runs[L.id];
+  const saved=S.runs[L.id];
+  const run=saved&&saved.q&&saved.pos<saved.q.length?saved:{hearts:5,combo:0,points:0,q:buildQueue(L),pos:0};
+  S.view={w:"level",i}; save();
+  const persist=(r)=>{S.runs[L.id]=JSON.parse(JSON.stringify(r));S.view={w:"level",i};save();};
+  const w=el("div","stack");
+  const top=el("div","topline");
+  const back=el("button","btn ghost","‹ Karte");back.type="button";back.onclick=home;
+  const hz=el("span"); const cb=el("span","combo","KOMBO x1"); const pt=el("span","coins");
+  top.append(back,hz,cb,pt); w.appendChild(top);
+  const bar=el("div","bar",'<span style="width:0"></span>'); w.appendChild(bar);
+  w.appendChild(el("div","stack",'<span class="label">WELT '+L.nr+' · '+esc(L.sub)+'</span><h2>'+esc(L.title)+'</h2>')).style.gap="6px";
+  w.appendChild(el("div","tip",'<b>Arbeitsblatt:</b> '+L.sheet));
+  const stage=el("div","stack"); w.appendChild(stage); app.appendChild(w);
+  const mult=()=>run.combo>=6?3:run.combo>=3?2:1;
+  function hud(){hz.innerHTML=hearts(run.hearts);const m=mult();cb.textContent="KOMBO x"+m;cb.classList.toggle("hot",m>1);pt.innerHTML='<span class="coin"></span>'+run.points;
+    bar.firstChild.style.width=(run.pos/run.q.length*100)+"%";}
+  function gain(n){run.points+=n;floatTxt("+"+n);beep("ok");}
+  function lose(){if(run.hearts>0){run.hearts--;floatTxt("−1 ♥",true);}run.combo=0;beep("bad");}
+  function next(){run.pos++;hud();if(run.pos>=run.q.length) return win();show(run.q[run.pos]);window.scrollTo({top:0,behavior:"smooth"});}
+  function nextBtn(box){const b=el("button","btn","Weiter ▶");b.type="button";b.onclick=next;box.appendChild(b);setTimeout(()=>b.focus({preventScroll:true}),50);}
+  function show(c){
+    persist(run);
+    stage.innerHTML=""; hud();
+    const box=el("div","box stack");
+    if(c.kind==="choice"){
+      if(c.label) box.appendChild(el("span","label",esc(c.label.toUpperCase())));
+      if(c.retry) box.appendChild(el("span","label",'<span style="color:var(--coin)">2. VERSUCH · '+RETRY+' MÜNZEN</span>'));
+      box.appendChild(el("p","prompt",esc(c.prompt)));
+      const o=el("div","opts"+(c.two&&c.opts.every(x=>x.length<22)?" two":"")); const bs=[];
+      c.opts.forEach((txt,k)=>{const b=el("button","opt",esc(txt));b.type="button";bs.push(b);o.appendChild(b);
+        b.onclick=()=>{bs.forEach(x=>x.disabled=true);const ok=k===c.correct;
+          const fb=el("div","feedback "+(ok?"good":"bad"));
+          if(ok){b.classList.add("right");let n;if(c.retry){n=RETRY;}else{run.combo++;n=BASE*mult();}gain(n);fb.innerHTML=(c.retry?"Jetzt stimmt’s!":["Richtig!","Treffer!","Stark!","Genau!"][Math.floor(Math.random()*4)])+'<span class="why">'+esc(c.explain||"")+'</span>';}
+          else{b.classList.add("wrong");bs[c.correct].classList.add("right");if(!c.retry){lose();run.q.push(Object.assign({},c,{retry:true,opts:c.opts}));fb.innerHTML='Leider falsch. Richtig ist: „'+esc(c.opts[c.correct])+'“<span class="why">'+esc(c.explain||"")+' Die Frage kommt am Ende noch einmal.</span>';}
+            else{fb.innerHTML='Wieder falsch. Richtig ist: „'+esc(c.opts[c.correct])+'“<span class="why">'+esc(c.explain||"")+' Verbessere das auf deinem Arbeitsblatt.</span>';beep("bad");}}
+          hud();persist(Object.assign({},run,{pos:run.pos+1}));box.appendChild(fb);nextBtn(box);};});
+      box.appendChild(o);
+    } else if(c.kind==="note"){
+      box.appendChild(el("label","prompt",esc(c.t.label))).setAttribute("for","note");
+      const ta=el("textarea");ta.id="note";ta.placeholder=c.t.ph;ta.value=S.note||"";box.appendChild(ta);const hint=el("p","foot");hint.style.textAlign="left";box.appendChild(hint);
+      const nb=el("button","btn","Weiter ▶");nb.type="button";nb.onclick=()=>{if(noteOk(ta.value))next();};box.appendChild(nb);
+      const upd=()=>{const ok=noteOk(ta.value);nb.disabled=!ok;hint.textContent=noteHint(ta.value);hint.style.color=ok?"var(--lime)":"var(--dim)";};
+      ta.oninput=()=>{S.note=ta.value;save();upd();};upd();
+    } else if(c.kind==="self"){
+      box.appendChild(el("span","label","SELBST-CHECK · "+RETRY+" MÜNZEN JE HAKEN"));
+      if(c.t.intro) box.appendChild(el("div","tip",c.t.intro));
+      box.appendChild(el("p","prompt",esc(c.t.stem)));
+      if(L.solution&&L.id==="vermutung") box.appendChild(el("div","tip",L.solution));
+      const cbs=c.t.items.map((s,k)=>{const lab=el("label","check",'<input type="checkbox" id="self'+k+'"><span>'+esc(s)+'</span>');box.appendChild(lab);return lab.querySelector("input");});
+      const b=el("button","btn","Fertig ▶");b.type="button";b.onclick=()=>{const n=cbs.filter(x=>x.checked).length*RETRY;cbs.forEach(x=>x.disabled=true);if(n)gain(n);next();};box.appendChild(b);
+    } else if(c.kind==="order"){
+      const t=c.t; box.appendChild(el("span","label","SORTIER-RÄTSEL · "+2*BASE+" MÜNZEN × KOMBO"));
+      box.appendChild(el("p","prompt",esc(t.stem)));
+      const slots=el("div","slots"),pool=el("div","opts");let seq=[];
+      const draw=()=>{slots.innerHTML="";for(let k=0;k<t.items.length;k++)slots.appendChild(el("div","slot"+(seq[k]!=null?" filled":""),seq[k]!=null?esc(t.items[seq[k]]):'<span style="color:var(--dim)">…</span>'));pool.querySelectorAll(".opt").forEach(b=>b.hidden=seq.includes(+b.dataset.i));chk.disabled=seq.length<t.items.length;};
+      shuffle(t.items.map((s,k)=>k)).forEach(k=>{const b=el("button","opt",esc(t.items[k]));b.type="button";b.dataset.i=k;b.onclick=()=>{beep("tap");seq.push(k);draw();};pool.appendChild(b);});
+      const ctr=el("div","btns");const undo=el("button","btn ghost","Rückgängig");undo.type="button";undo.onclick=()=>{seq.pop();draw();};
+      const chk=el("button","btn","Prüfen");chk.type="button";
+      chk.onclick=()=>{ctr.remove();pool.remove();const ok=seq.every((x,k)=>x===k);
+        [...slots.children].forEach((s,k)=>s.classList.add(seq[k]===k?"ok":"no"));
+        const fb=el("div","feedback "+(ok?"good":"bad"));
+        if(ok){run.combo++;gain(2*BASE*mult());fb.innerHTML='Perfekt sortiert!<span class="why">'+esc(t.explain)+'</span>';}
+        else{lose();seq=t.items.map((s,k)=>k);draw();[...slots.children].forEach(s=>s.classList.add("ok"));fb.innerHTML='Nicht ganz. Oben siehst du jetzt die richtige Reihenfolge.<span class="why">'+esc(t.explain)+'</span>';}
+        hud();box.appendChild(fb);nextBtn(box);};
+      ctr.append(undo,chk);box.append(slots,pool,ctr);draw();
+    } else if(c.kind==="gaps"){
+      box.appendChild(el("span","label",'<span style="color:var(--heart)">BOSS-KAMPF · JEDE RUNDE MIT FEHLERN KOSTET EIN HERZ</span>'));
+      const bank=el("div","bank");BANK.forEach(x=>{const s=el("span","",esc(x));s.dataset.w=x;bank.appendChild(s);});
+      box.appendChild(el("p","","<b>Wortspeicher</b>"));box.appendChild(bank);
+      const m=el("div","merke",'<p class="prompt">'+esc(GAPS_TITLE)+'</p>');const ul=el("ul");const sels=[];let gi=0;
+      const ref=()=>{const u=sels.map(g=>g.sel.value);bank.querySelectorAll("span").forEach(s=>s.classList.toggle("used",u.includes(s.dataset.w)));};
+      GAPS.forEach(parts=>{const li=el("li");parts.forEach((p,k)=>{if(k%2===0){li.appendChild(document.createTextNode(p));return;}
+        const sel=document.createElement("select");sel.className="gap";sel.id="gap"+(gi++);sel.setAttribute("aria-label","Lücke");
+        sel.innerHTML='<option value="">– wählen –</option>'+BANK.map(x=>'<option>'+esc(x)+'</option>').join("");sel.onchange=ref;
+        const sol=el("span","gapsol");sol.hidden=true;li.append(sel,sol);sels.push({sel,ans:p,sol});});ul.appendChild(li);});
+      m.appendChild(ul);box.appendChild(m);
+      const isOk=(g,k)=>{if(g.ans==="statisch"||g.ans==="dynamisch"){const o=sels[g.ans==="statisch"?k+1:k-1].sel.value;return ["statisch","dynamisch"].includes(g.sel.value)&&g.sel.value!==o;}return g.sel.value===g.ans;};
+      let round=1;const got=new Set();const msg=el("div");box.appendChild(msg);
+      const chk=el("button","btn red","Angriff! (Prüfen)");chk.type="button";box.appendChild(chk);
+      chk.onclick=()=>{const open=sels.filter(g=>!g.sel.value).length;if(open){msg.className="feedback bad";msg.textContent="Es fehlen noch "+open+" Lücken.";return;}
+        let n=0;sels.forEach((g,k)=>{if(got.has(k))return;const ok=isOk(g,k);g.sel.classList.remove("ok","bad");g.sel.classList.add(ok?"ok":"bad");if(ok){got.add(k);n+=round===1?BASE:RETRY;g.sel.disabled=true;}});
+        if(n)gain(n);const wrong=sels.length-got.size;
+        if(wrong&&round===1){lose();round=2;hud();msg.className="feedback bad";msg.textContent="Der Boss hat noch "+wrong+" Lebenspunkte! Verbessere die roten Lücken.";chk.textContent="Letzter Angriff!";return;}
+        if(wrong){lose();sels.forEach((g,k)=>{if(!got.has(k)){g.sol.hidden=false;g.sol.textContent="→ "+g.ans;}});}
+        sels.forEach(g=>g.sel.disabled=true);chk.remove();hud();
+        msg.className="feedback good";msg.innerHTML=wrong?'Boss besiegt – knapp!<span class="why">Die grünen Wörter hinter den roten Lücken sind die Lösung. Verbessere deine Tabelle auf dem Arbeitsblatt.</span>':'Boss besiegt – fehlerfrei!<span class="why">Vergleiche jetzt mit deiner Tabelle auf dem Arbeitsblatt.</span>';
+        nextBtn(box);};
+    }
+    stage.appendChild(box);
+  }
+  function win(){
+    delete S.runs[L.id]; S.view=null;
+    stage.innerHTML="";const stars=run.hearts>=4?3:run.hearts>=2?2:1;const prev=S.done[L.id];
+    if(!prev||run.points>prev.points)S.done[L.id]={points:run.points,stars:Math.max(stars,prev?prev.stars:0)};
+    else if(stars>prev.stars)S.done[L.id].stars=stars;
+    save();bump();beep("win");
+    const box=el("div","box stack win");
+    box.innerHTML='<span class="label">WELT '+L.nr+' GESCHAFFT</span><div class="bigstars">'+[0,1,2].map(k=>STAR(k<stars)).join("")+'</div><div class="score-big">'+run.points+'</div><p>Münzen in dieser Welt'+(prev&&run.points<=prev.points?'<br><span class="foot">Dein Rekord ('+prev.points+') bleibt gespeichert.</span>':'')+'</p>'+(L.solution&&L.id!=="vermutung"?'<div class="tip" style="text-align:left">'+L.solution+'</div>':'');
+    const bs=el("div","btns");bs.style.justifyContent="center";
+    if(i+1<LEVELS.length){const n=el("button","btn","Nächste Welt ▶");n.type="button";n.onclick=()=>play(i+1);bs.appendChild(n);}
+    else{const f=el("button","btn red","Highscore ▶");f.type="button";f.onclick=finale;bs.appendChild(f);}
+    const a=el("button","btn ghost","Nochmal");a.type="button";a.onclick=()=>play(i,true);const k=el("button","btn ghost","Karte");k.type="button";k.onclick=home;bs.append(a,k);
+    box.appendChild(bs);stage.appendChild(box);hud();bar.firstChild.style.width="100%";
+  }
+  show(run.q[0]);
+}
+function readGate(i){
+  const L=LEVELS[i];const w=el("div","stack");
+  const back=el("button","btn ghost","‹ Karte");back.type="button";back.onclick=home;back.style.alignSelf="flex-start";w.appendChild(back);
+  w.appendChild(el("div","stack",'<span class="label">WELT '+L.nr+' · LADE-STATION</span><h2>'+esc(L.title)+'</h2>')).style.gap="6px";
+  const box=el("div","box stack");
+  box.appendChild(el("p","prompt","Lade deine Energie auf: Lies jetzt den Fachtext."));
+  box.appendChild(el("div","tip",L.sheet));
+  const a=el("label","check",'<input type="checkbox" id="r1"><span>Ich habe den Text zweimal gelesen.</span>');
+  const b=el("label","check",'<input type="checkbox" id="r2"><span>Ich habe beim zweiten Lesen alle Fachbegriffe markiert und unbekannte Wörter nachgeschaut.</span>');
+  const go=el("button","btn","Energie voll ▶");go.type="button";go.disabled=true;
+  const u=()=>{go.disabled=!(a.querySelector("input").checked&&b.querySelector("input").checked);};
+  a.querySelector("input").onchange=u;b.querySelector("input").onchange=u;
+  go.onclick=()=>{S.done[L.id]={points:0,stars:3};save();beep("win");play(i+1);};
+  box.append(a,b,go);w.appendChild(box);app.appendChild(w);
+}
+function finale(){
+  S.view={w:"finale"}; save();
+  window.scrollTo(0,0);app.innerHTML="";bump();
+  const rows=LEVELS.filter(L=>!L.read).map(L=>{const d=S.done[L.id]||{points:0,stars:0};return '<tr><td>'+esc(L.title)+'</td><td>'+smallStars(d.stars)+'</td><td class="n">'+d.points+'</td></tr>';}).join("");
+  const sum=LEVELS.reduce((a,L)=>a+((S.done[L.id]||{}).stars||0)*(L.read?0:1),0);
+  const now=new Date();const ts=now.toLocaleDateString("de-DE")+", "+now.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});
+  const w=el("div","stack");
+  w.appendChild(el("div","box stack win",'<span class="label">HIGHSCORE</span><h1>Quest geschafft!</h1><div class="score-big">'+total()+'</div><p>Münzen · '+sum+' von '+3*LEVELS.filter(L=>!L.read).length+' Sternen</p><p class="px" style="font-size:.7rem;color:var(--lime)">'+esc(rank())+'</p><div style="overflow-x:auto;max-width:100%"><table class="hs">'+rows+'</table></div><p class="foot">Stand: '+esc(ts)+'</p>'));
+  w.appendChild(el("div","tip","<b>Letzter Schritt:</b> Mache einen Screenshot von dieser Übersicht und sende ihn in der Aufgabe in Teams an Herrn Heuermann. Hast du alles auf deinem Arbeitsblatt verbessert?"));
+  const b=el("button","btn ghost","‹ Zur Karte");b.type="button";b.onclick=home;w.appendChild(b);
+  app.appendChild(w);beep("win");
+}
+(function start(){const v=S.view;
+  if(v&&v.w==="level"&&LEVELS[v.i]&&(v.i===0||S.done[LEVELS[v.i-1].id])) play(v.i);
+  else if(v&&v.w==="finale"&&LEVELS.every(L=>S.done[L.id])) finale();
+  else home();})();
+})();
+</script>
+
+</body></html>
