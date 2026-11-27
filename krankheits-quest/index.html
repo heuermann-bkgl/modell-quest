@@ -3,7 +3,7 @@
 <head>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta charset="utf-8">
-<title>Krankheits-Quest</title>
+<title>Das biomedizinische Krankheitsmodell · Krankheits-Quest</title>
 <meta name="claude:viewport-fit-sides" content="cover">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Atkinson+Hyperlegible:wght@400;700&display=swap">
@@ -123,7 +123,7 @@ table.hs td.n{text-align:right;font-variant-numeric:tabular-nums;color:var(--coi
 </style>
 
 <header class="hud"><div class="in">
-  <div class="logo">KRANKHEITS-QUEST</div>
+  <div class="logo">SPIEL 2 · KRANKHEITS-QUEST</div>
   <div class="coins" title="Punkte"><span class="coin" aria-hidden="true"></span><span id="coins">0</span></div>
   <button class="iconbtn" id="snd" type="button" aria-pressed="false">Ton: aus</button>
 </div></header>
@@ -324,7 +324,7 @@ function home(){
   window.scrollTo(0,0); app.innerHTML=""; bump();
   const w=el("div","stack");
   const nr=nextRank();
-  w.appendChild(el("div","stack",'<span class="label">GESUNDHEIT · HF4 · AS4.1</span><h1>Krankheits-Quest</h1><p class="lead">Zwölf Welten zum Arbeitsblatt „Das biomedizinische Krankheitsmodell“. Jede richtige Antwort bringt Münzen, mehrere richtige hintereinander geben eine Kombo. Pro Welt hast du fünf Herzen, jeder Fehler kostet eins. Mit 4–5 Herzen am Ende gibt es drei Sterne, mit 2–3 Herzen zwei Sterne.</p>'));
+  w.appendChild(el("div","stack",'<span class="label">GESUNDHEIT · HF4 · AS4.1</span><h1>Das biomedizinische Krankheitsmodell</h1><p class="lead">Zwölf Welten zum Arbeitsblatt „Das biomedizinische Krankheitsmodell“. Jede richtige Antwort bringt Münzen, mehrere richtige hintereinander geben eine Kombo. Pro Welt hast du fünf Herzen, jeder Fehler kostet eins. Mit 4–5 Herzen am Ende gibt es drei Sterne, mit 2–3 Herzen zwei Sterne.</p>'));
   const xp=el("div","box stack"); xp.style.gap="8px";
   xp.innerHTML='<div class="rankline"><span>Rang: <b>'+esc(rank())+'</b></span><span>'+(nr?'Nächster Rang bei '+nr[0]+' %':'Höchster Rang erreicht!')+'</span></div><div class="xp" role="progressbar" aria-valuenow="'+pct()+'" aria-valuemin="0" aria-valuemax="100"><span style="width:'+pct()+'%"></span></div>';
   w.appendChild(xp);
